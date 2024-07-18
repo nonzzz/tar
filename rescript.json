@@ -1,0 +1,22 @@
+{
+  "name": "tar",
+  "sources": [
+    {
+      "dir": "src",
+      "subdirs": true
+    }
+  ],
+  "package-specs": [
+    {
+      "module": "esmodule",
+      "in-source": false
+    }
+  ],
+  "suffix": ".mjs",
+  "bs-dependencies": [
+    "@rescript/core"
+  ],
+  "bsc-flags": [
+    "-open RescriptCore"
+  ]
+}
