@@ -26,12 +26,12 @@ type headOptons = {
   prefix: u8, // fixedLength 155 offeset 345
 }
 
-type headAllocator = {options: headOptons, block: u8}
+type headResult = {options: headOptons, block: u8}
 
 // We using 512 bytes as the block size.
 
 module Head = {
-  let make = (userOptions: option<headOptons>) => {
+  let make = (userOptions: option<headOptons>): headResult => {
     let options = switch userOptions {
     | Some(opts) => opts
     | None => {
