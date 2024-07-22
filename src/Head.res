@@ -99,10 +99,12 @@ let setU8ArrayWithOffset = (block: u8, offset: int, value: u8): u8 => {
 // For better tree shaking.
 external arryLike: u8 => array<int> = "%identity"
 
+external land: (int, int) => int = "%andint"
+
 let encode = (options: option<headOptions>) => {
   let head = Head.make(options)
   let {block, options} = head
-  let {typeflag, linkname, mode} = options
+  let {typeflag, linkname, mode, uname, gname, gid, uid, devmajor, devminor, mtime, size} = options
   let name = ref({
     if (
       typeflag == typeFlag.dir_type &&
@@ -155,26 +157,96 @@ let encode = (options: option<headOptions>) => {
         None
       } else {
         binaryName.contents->arryLike->Js.Typed_array.Uint8Array.setArrayOffset(0, block)
-        let mode = mode->Octal.encode(Some(6))
-        mode->Utf8.encode->arryLike->Js.Typed_array.Uint8Array.setArrayOffset(100, block)
-        let uid = options.uid->Octal.encode(Some(6))
-        uid->Utf8.encode->arryLike->Js.Typed_array.Uint8Array.setArrayOffset(108, block)
-        let gid = options.gid->Octal.encode(Some(6))
-        gid->Utf8.encode->arryLike->Js.Typed_array.Uint8Array.setArrayOffset(116, block)
+        // mode
+        mode
+        ->Octal.encode(Some(6))
+        ->Utf8.encode
+        ->arryLike
+        ->Js.Typed_array.Uint8Array.setArrayOffset(100, block)
+        // uid
+        uid
+        ->Octal.encode(Some(6))
+        ->Utf8.encode
+        ->arryLike
+        ->Js.Typed_array.Uint8Array.setArrayOffset(108, block)
+        // gid
+        gid
+        ->Octal.encode(Some(6))
+        ->Utf8.encode
+        ->arryLike
+        ->Js.Typed_array.Uint8Array.setArrayOffset(116, block)
+
+        // size
+        // let octalSize =
+        if size->Octal.encode(None)->Js.String.length > 11 {
+          //  big ending
+          let overflowSize = ref(size)
+          let t: array<int> = []
+          for i in 11 downto 0 {
+            overflowSize := Js.Math.floor_int(overflowSize.contents / 0x100)
+            // t.push(land(overflowSize.contents, 0xff))
+            // t->Array.push(land(overflowSize.contents, 0xff))
+          }
+        }
+
         // mtime
-        let mtime = options.mtime->Octal.encode(Some(11))
-        mtime->Utf8.encode->arryLike->Js.Typed_array.Uint8Array.setArrayOffset(136, block)
+        mtime
+        ->Octal.encode(Some(11))
+        ->Utf8.encode
+        ->arryLike
+        ->Js.Typed_array.Uint8Array.setArrayOffset(136, block)
         // typeflag
         ("0" ++ typeflag)
         ->Utf8.encode
         ->arryLike
         ->Js.Typed_array.Uint8Array.setArrayOffset(156, block)
-        if typeflag == typeFlag.link_type {
+        if options.linkname->Js.String.length > 0 {
           linkname->arryLike->Js.Typed_array.Uint8Array.setArrayOffset(157, block)
         }
         // magic and version
         "ustar"->Utf8.encode->arryLike->Js.Typed_array.Uint8Array.setArrayOffset(257, block)
         "00"->Utf8.encode->arryLike->Js.Typed_array.Uint8Array.setArrayOffset(263, block)
+
+        if uname->Js.String.length > 0 {
+          uname->Utf8.encode->arryLike->Js.Typed_array.Uint8Array.setArrayOffset(265, block)
+        }
+        if gname->Js.String.length > 0 {
+          gname->Utf8.encode->arryLike->Js.Typed_array.Uint8Array.setArrayOffset(297, block)
+        }
+
+        devmajor
+        ->Octal.encode(Some(6))
+        ->Utf8.encode
+        ->arryLike
+        ->Js.Typed_array.Uint8Array.setArrayOffset(329, block)
+
+        devminor
+        ->Octal.encode(Some(6))
+        ->Utf8.encode
+        ->arryLike
+        ->Js.Typed_array.Uint8Array.setArrayOffset(337, block)
+
+        if prefix.contents->Js.String.length > 0 {
+          prefix.contents
+          ->Utf8.encode
+          ->arryLike
+          ->Js.Typed_array.Uint8Array.setArrayOffset(345, block)
+        }
+
+        // chksum
+        let chksum = Js.Typed_array.Uint8Array.reducei((acc, v, i) => {
+          if i >= 148 && i < 156 {
+            acc + 32
+          } else {
+            acc + v
+          }
+        }, 0, block)
+        chksum
+        ->Octal.encode(Some(6))
+        ->Utf8.encode
+        ->arryLike
+        ->Js.Typed_array.Uint8Array.setArrayOffset(148, block)
+
         Some(block)
       }
     }
