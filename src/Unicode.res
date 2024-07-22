@@ -25,3 +25,20 @@ module Utf8 = {
   let encode = (s: string) => s->_encoder.encode
   let decode = (u8: Js.Typed_array.Uint8Array.t) => u8->_decoder.decode
 }
+
+module Octal = {
+  let encode = (u: int, fixed: option<int>) => {
+    let o = u->Js.Int.toStringWithRadix(~radix=8)
+    switch fixed {
+    | None => o
+    | Some(cap) => {
+        let l = o->Js.String.length
+        if l <= cap {
+          (cap - l)->Js.String.repeat("0") ++ o ++ " "
+        } else {
+          cap->Js.String.repeat("7") ++ " "
+        }
+      }
+    }
+  }
+}
