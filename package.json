@@ -20,6 +20,7 @@
     "eslint-config-kagura": "^2.2.1",
     "rescript": "^11.1.2",
     "rollup": "^4.19.0",
+    "rollup-plugin-dts": "^6.1.1",
     "rollup-plugin-swc3": "^0.11.2",
     "tsx": "^4.16.2",
     "typescript": "^5.5.4"

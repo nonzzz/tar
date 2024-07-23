@@ -4,8 +4,9 @@
 // POSIX.1-1988
 // https://www.gnu.org/software/tar/manual/tar.html#Blocking-Factor
 
-open Unicode
-type u8 = Js.Typed_array.Uint8Array.t
+open! External
+
+type u8 = Uint8Array.t
 
 // https://www.gnu.org/software/tar/manual/html_node/Standard.html
 type posixHead = {
@@ -27,7 +28,6 @@ type posixHead = {
   prefix: u8, // fixedLength 155 offeset 345
 }
 
-@genType
 type headOptions = {
   name: string,
   mode: int,
@@ -75,7 +75,7 @@ type headResult = {options: headOptions, block: u8}
 
 // We using 512 bytes as the block size.
 
-module Head = {
+%%private(
   let make = (userOptions: option<headOptions>): headResult => {
     let options = switch userOptions {
     | Some(opts) => opts
@@ -84,28 +84,16 @@ module Head = {
         err->Error.raise
       }
     }
-    {options, block: 512->Js.Typed_array.Uint8Array.fromLength}
+    {options, block: 512->Uint8Array.fromLength}
   }
-}
+)
 
-let setU8ArrayWithOffset = (block: u8, offset: int, value: u8): u8 => {
-  let length = value->Js.Typed_array.Uint8Array.length
-  for i in 0 to length - 1 {
-    let i = value->Js.Typed_array.Uint8Array.unsafe_get(i)
-    block->Js.Typed_array.Uint8Array.unsafe_set(i, offset + i)
-  }
-  block
-}
-
-// For better tree shaking.
-external arryLike: u8 => array<int> = "%identity"
-
-external land: (int, int) => int = "%andint"
+// external land: (int, int) => int = "%andint"
 
 let encode = (options: option<headOptions>) => {
-  let head = Head.make(options)
+  let head = make(options)
   let {block, options} = head
-  let {typeflag, linkname, mode, uname, gname, gid, uid, devmajor, devminor, mtime} = options
+  let {typeflag, linkname, mode, uname, gname, gid, uid, devmajor, devminor, mtime, size} = options
   let name = ref({
     if (
       typeflag == typeFlag.dir_type &&
@@ -117,8 +105,8 @@ let encode = (options: option<headOptions>) => {
     }
   })
   let prefix = ref("")
-  let binaryName = ref(Utf8.encode(name.contents))
-  if binaryName.contents->Js.Typed_array.Uint8Array.length != name.contents->Js.String.length {
+  let binaryName = ref(textEncode(name.contents))
+  if binaryName.contents->Uint8Array.length != name.contents->Js.String.length {
     None
   } else {
     let invalidate = ref(false)
@@ -142,114 +130,116 @@ let encode = (options: option<headOptions>) => {
     | true => None
     | _ =>
       // Fix binaryName again.
-      binaryName := if (
-          binaryName.contents->Js.Typed_array.Uint8Array.length !== name.contents->Js.String.length
-        ) {
-          Utf8.encode(name.contents)
+      binaryName := if binaryName.contents->Uint8Array.length !== name.contents->Js.String.length {
+          textEncode(name.contents)
         } else {
           binaryName.contents
         }
       let lengthOverflow =
-        binaryName.contents->Js.Typed_array.Uint8Array.length +
-          prefix.contents->Js.String.length > 255
-      let linkname = linkname->Utf8.encode
-      let linkNameOverflow = linkname->Js.Typed_array.Uint8Array.length > 100
+        binaryName.contents->Uint8Array.length + prefix.contents->Js.String.length > 255
+      let linkname = linkname->textEncode
+      let linkNameOverflow = linkname->Uint8Array.length > 100
       if lengthOverflow || linkNameOverflow {
         None
       } else {
-        binaryName.contents->arryLike->Js.Typed_array.Uint8Array.setArrayOffset(0, block)
+        binaryName.contents->Uint8Array.setArrayOffset(block, 0)
         // mode
         mode
-        ->Octal.encode(Some(6))
-        ->Utf8.encode
-        ->arryLike
-        ->Js.Typed_array.Uint8Array.setArrayOffset(100, block)
+        ->octalEncode(Some(6))
+        ->textEncode
+        ->Uint8Array.setArrayOffset(block, 100)
         // uid
         uid
-        ->Octal.encode(Some(6))
-        ->Utf8.encode
-        ->arryLike
-        ->Js.Typed_array.Uint8Array.setArrayOffset(108, block)
+        ->octalEncode(Some(6))
+        ->textEncode
+        ->Uint8Array.setArrayOffset(block, 108)
         // gid
         gid
-        ->Octal.encode(Some(6))
-        ->Utf8.encode
-        ->arryLike
-        ->Js.Typed_array.Uint8Array.setArrayOffset(116, block)
+        ->octalEncode(Some(6))
+        ->textEncode
+        ->Uint8Array.setArrayOffset(block, 116)
 
         // size
-        // let octalSize =
-        // if size->Octal.encode(None)->Js.String.length > 11 {
-        //   //  big ending
-        //   let overflowSize = ref(size)
-        //   let t: array<int> = []
-        //   for i in 11 downto 0 {
-        //     overflowSize := Js.Math.floor_int(overflowSize.contents / 0x100)
-        //     // t.push(land(overflowSize.contents, 0xff))
-        //     // t->Array.push(land(overflowSize.contents, 0xff))
-        //   }
-        // }
+        let octalSize = size->octalEncode(None)
+        if octalSize->Js.String.length > 11 {
+          // big ending
+          let overflowSize = ref(size)
+          let t: array<int> = []
+          for i in 11 downto 0 {
+            t->Array.set(11 - i, land(overflowSize.contents, 0xff))
+            overflowSize := overflowSize.contents / 0x100->Int.toFloat->Js.Math.floor_int
+          }
+          t->Array.unshift(0x80)
+        } else {
+          size
+          ->octalEncode(Some(11))
+          ->textEncode
+          ->Uint8Array.setArrayOffset(block, 124)
+        }
 
         // mtime
         mtime
-        ->Octal.encode(Some(11))
-        ->Utf8.encode
-        ->arryLike
-        ->Js.Typed_array.Uint8Array.setArrayOffset(136, block)
+        ->octalEncode(Some(11))
+        ->textEncode
+        ->Uint8Array.setArrayOffset(block, 136)
         // typeflag
         ("0" ++ typeflag)
-        ->Utf8.encode
-        ->arryLike
-        ->Js.Typed_array.Uint8Array.setArrayOffset(156, block)
+        ->textEncode
+        ->Uint8Array.setArrayOffset(block, 156)
         if options.linkname->Js.String.length > 0 {
-          linkname->arryLike->Js.Typed_array.Uint8Array.setArrayOffset(157, block)
+          linkname->Uint8Array.setArrayOffset(block, 157)
         }
         // magic and version
-        "ustar"->Utf8.encode->arryLike->Js.Typed_array.Uint8Array.setArrayOffset(257, block)
-        "00"->Utf8.encode->arryLike->Js.Typed_array.Uint8Array.setArrayOffset(263, block)
+        "ustar"->textEncode->Uint8Array.setArrayOffset(block, 257)
+        "00"->textEncode->Uint8Array.setArrayOffset(block, 263)
 
         if uname->Js.String.length > 0 {
-          uname->Utf8.encode->arryLike->Js.Typed_array.Uint8Array.setArrayOffset(265, block)
+          uname->textEncode->Uint8Array.setArrayOffset(block, 265)
         }
         if gname->Js.String.length > 0 {
-          gname->Utf8.encode->arryLike->Js.Typed_array.Uint8Array.setArrayOffset(297, block)
+          gname->textEncode->Uint8Array.setArrayOffset(block, 297)
         }
 
         devmajor
-        ->Octal.encode(Some(6))
-        ->Utf8.encode
-        ->arryLike
-        ->Js.Typed_array.Uint8Array.setArrayOffset(329, block)
+        ->octalEncode(Some(6))
+        ->textEncode
+        ->Uint8Array.setArrayOffset(block, 329)
 
         devminor
-        ->Octal.encode(Some(6))
-        ->Utf8.encode
-        ->arryLike
-        ->Js.Typed_array.Uint8Array.setArrayOffset(337, block)
+        ->octalEncode(Some(6))
+        ->textEncode
+        ->Uint8Array.setArrayOffset(block, 337)
 
         if prefix.contents->Js.String.length > 0 {
           prefix.contents
-          ->Utf8.encode
-          ->arryLike
-          ->Js.Typed_array.Uint8Array.setArrayOffset(345, block)
+          ->textEncode
+          ->Uint8Array.setArrayOffset(block, 345)
         }
 
         // chksum
-        let chksum = Js.Typed_array.Uint8Array.reducei((acc, v, i) => {
+        let chksum = block->Uint8Array.reducei((acc, v, i) => {
           if i >= 148 && i < 156 {
             acc + 32
           } else {
             acc + v
           }
-        }, 0, block)
+        }, 0)
         chksum
-        ->Octal.encode(Some(6))
-        ->Utf8.encode
-        ->arryLike
-        ->Js.Typed_array.Uint8Array.setArrayOffset(148, block)
+        ->octalEncode(Some(6))
+        ->textEncode
+        ->Uint8Array.setArrayOffset(block, 148)
 
         Some(block)
       }
     }
   }
+}
+
+type decodeOptions = {
+  filenameEncoding: string,
+  allowUnknowFormat: bool,
+}
+
+let decode = (b: u8, options: option<decodeOptions>) => {
+  octalDecode(b, {len: 10, offset: None})
 }
