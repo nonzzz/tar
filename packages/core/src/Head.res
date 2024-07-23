@@ -27,6 +27,7 @@ type posixHead = {
   prefix: u8, // fixedLength 155 offeset 345
 }
 
+@genType
 type headOptions = {
   name: string,
   mode: int,
@@ -104,7 +105,7 @@ external land: (int, int) => int = "%andint"
 let encode = (options: option<headOptions>) => {
   let head = Head.make(options)
   let {block, options} = head
-  let {typeflag, linkname, mode, uname, gname, gid, uid, devmajor, devminor, mtime, size} = options
+  let {typeflag, linkname, mode, uname, gname, gid, uid, devmajor, devminor, mtime} = options
   let name = ref({
     if (
       typeflag == typeFlag.dir_type &&
@@ -178,16 +179,16 @@ let encode = (options: option<headOptions>) => {
 
         // size
         // let octalSize =
-        if size->Octal.encode(None)->Js.String.length > 11 {
-          //  big ending
-          let overflowSize = ref(size)
-          let t: array<int> = []
-          for i in 11 downto 0 {
-            overflowSize := Js.Math.floor_int(overflowSize.contents / 0x100)
-            // t.push(land(overflowSize.contents, 0xff))
-            // t->Array.push(land(overflowSize.contents, 0xff))
-          }
-        }
+        // if size->Octal.encode(None)->Js.String.length > 11 {
+        //   //  big ending
+        //   let overflowSize = ref(size)
+        //   let t: array<int> = []
+        //   for i in 11 downto 0 {
+        //     overflowSize := Js.Math.floor_int(overflowSize.contents / 0x100)
+        //     // t.push(land(overflowSize.contents, 0xff))
+        //     // t->Array.push(land(overflowSize.contents, 0xff))
+        //   }
+        // }
 
         // mtime
         mtime

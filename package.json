@@ -13,9 +13,16 @@
   "license": "MIT",
   "devDependencies": {
     "@rescript/core": "^1.5.2",
+    "@rollup/plugin-node-resolve": "^15.2.3",
+    "@types/node": "^20.14.11",
     "dprint": "^0.47.2",
+    "eslint": "^8.57.0",
+    "eslint-config-kagura": "^2.2.1",
     "rescript": "^11.1.2",
-    "tsx": "^4.16.2"
+    "rollup": "^4.19.0",
+    "rollup-plugin-swc3": "^0.11.2",
+    "tsx": "^4.16.2",
+    "typescript": "^5.5.4"
   },
   "packageManager": "pnpm@9.4.0"
 }
