@@ -71,6 +71,8 @@ let typeFlag = {
   cont_type: "7",
 }
 
+%%private(let zero_offset = '0')
+
 type headResult = {options: headOptions, block: u8}
 
 // We using 512 bytes as the block size.
@@ -88,7 +90,15 @@ type headResult = {options: headOptions, block: u8}
   }
 )
 
-// external land: (int, int) => int = "%andint"
+let chksum = (b: u8) => {
+  b->Uint8Array.reducei((acc, v, i) => {
+    if i >= 148 && i < 156 {
+      acc + 32
+    } else {
+      acc + v
+    }
+  }, 512)
+}
 
 let encode = (options: option<headOptions>) => {
   let head = make(options)
@@ -183,7 +193,7 @@ let encode = (options: option<headOptions>) => {
         ->textEncode
         ->Uint8Array.setArrayOffset(block, 136)
         // typeflag
-        ("0" ++ typeflag)
+        (zero_offset->Char.code->Int.toString ++ typeflag)
         ->textEncode
         ->Uint8Array.setArrayOffset(block, 156)
         if options.linkname->Js.String.length > 0 {
@@ -217,14 +227,8 @@ let encode = (options: option<headOptions>) => {
         }
 
         // chksum
-        let chksum = block->Uint8Array.reducei((acc, v, i) => {
-          if i >= 148 && i < 156 {
-            acc + 32
-          } else {
-            acc + v
-          }
-        }, 0)
-        chksum
+        block
+        ->chksum
         ->octalEncode(Some(6))
         ->textEncode
         ->Uint8Array.setArrayOffset(block, 148)
@@ -240,6 +244,76 @@ type decodeOptions = {
   allowUnknowFormat: bool,
 }
 
-let decode = (b: u8, options: option<decodeOptions>) => {
-  octalDecode(b, {len: 10, offset: None})
+type decodeResult = {
+  name: option<string>,
+  mode: option<int>,
+  uid: option<int>,
+  gid: option<int>,
+  size: option<int>,
+  mtime: option<int>,
+  chksum: option<int>,
+  typeflag: option<string>,
+  linkname: option<string>,
+  uname: option<string>,
+  gname: option<string>,
+  devmajor: option<int>,
+  devminor: option<int>,
+}
+
+let decode = (b: u8, options: decodeOptions) => {
+  let {filenameEncoding, allowUnknowFormat} = options
+
+  let name = b->strDecode(0, 100, Some(filenameEncoding))
+  let mode = b->octalDecode({len: 8, offset: Some(100)})
+  let uid = b->octalDecode({len: 8, offset: Some(108)})
+  let gid = b->octalDecode({len: 8, offset: Some(116)})
+  let size = b->octalDecode({len: 12, offset: Some(124)})
+  let mtime = b->octalDecode({len: 12, offset: Some(136)})
+  let linkname = switch b->Uint8Array.unsafe_get(157) {
+  | None => None
+  | Some(_) => b->strDecode(157, 100, Some(filenameEncoding))
+  }
+  let typeflag = switch b->Uint8Array.get(156) {
+  | 0 => zero_offset->Char.code->String.fromCharCode
+  | bb => (bb - zero_offset->Char.code)->String.fromCharCode
+  }
+  let uname = b->strDecode(265, 32, None)
+  let gname = b->strDecode(297, 32, None)
+  let devmajor = b->octalDecode({len: 8, offset: Some(329)})
+  let devminor = b->octalDecode({len: 8, offset: Some(337)})
+
+  let c = b->chksum
+
+  switch c {
+  | 512 => None
+  | cc =>
+    switch b->octalDecode({len: 8, offset: Some(148)}) {
+    | None =>
+      Error.make(
+        "'Invalid tar header. Maybe the tar is corrupted or it needs to be gunzipped?",
+      )->Error.raise
+    | Some(parsed_chksum) =>
+      if cc !== parsed_chksum {
+        Error.make(
+          "'Invalid tar header. Maybe the tar is corrupted or it needs to be gunzipped?",
+        )->Error.raise
+      } else {
+        Some({
+          name,
+          mode,
+          uid,
+          gid,
+          size,
+          mtime,
+          chksum: Some(cc),
+          typeflag: Some(typeflag),
+          linkname,
+          uname,
+          gname,
+          devmajor,
+          devminor,
+        })
+      }
+    }
+  }
 }

@@ -54,4 +54,4 @@ export interface DecodeOptions {
 
 export declare function encode(options: HeadOptions): Uint8Array | undefined
 
-export declare function decode(b: Uint8Array, options?: DecodeOptions): HeadOptions | undefined
+export declare function decode(b: Uint8Array, options: DecodeOptions): Partial<HeadOptions> | undefined
