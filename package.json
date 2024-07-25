@@ -15,6 +15,7 @@
     "@rescript/core": "^1.5.2",
     "@rollup/plugin-node-resolve": "^15.2.3",
     "@types/node": "^20.14.11",
+    "@vitest/coverage-v8": "^2.0.4",
     "dprint": "^0.47.2",
     "eslint": "^8.57.0",
     "eslint-config-kagura": "^2.2.1",
@@ -23,7 +24,8 @@
     "rollup-plugin-dts": "^6.1.1",
     "rollup-plugin-swc3": "^0.11.2",
     "tsx": "^4.16.2",
-    "typescript": "^5.5.4"
+    "typescript": "^5.5.4",
+    "vitest": "^2.0.4"
   },
   "packageManager": "pnpm@9.4.0"
 }
