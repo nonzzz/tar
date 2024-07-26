@@ -1,4 +1,4 @@
-export const typeFlag = {
+const typeFlag = {
   reg_type: '0',
   areg_type: '\0',
   link_type: '1',

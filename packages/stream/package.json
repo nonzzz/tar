@@ -1,0 +1,6 @@
+{
+  "name": "@tar/stream",
+  "dependencies": {
+    "@tar/core": "workspace:*"
+  }
+}

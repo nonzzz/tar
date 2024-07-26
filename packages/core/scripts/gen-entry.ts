@@ -42,6 +42,9 @@ async function main() {
   const content = files
     .map((file) => {
       const relativePath = path.relative(rescriptOutputPath, file)
+      if (relativePath === 'Head.mjs') {
+        return `export { encode, decode } from './${relativePath}'`
+      }
       return `export * from './${relativePath}'`
     })
     .join('\n')

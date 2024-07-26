@@ -53,6 +53,12 @@ importers:
 
   packages/core: {}
 
+  packages/stream:
+    dependencies:
+      '@tar/core':
+        specifier: workspace:*
+        version: link:../core
+
 packages:
 
   '@ampproject/remapping@2.3.0':

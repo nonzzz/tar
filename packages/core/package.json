@@ -1,5 +1,6 @@
 {
   "name": "@tar/core",
+  "version": "0.0.0",
   "description": "It's an implementation based on the `ustar` format",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
