@@ -13,8 +13,6 @@ jobs:
       - name: Install Dependices
         run: make
 
-      - name: Build Library
-        run: make build-all
       - name: Run Test
         run: make test
 
