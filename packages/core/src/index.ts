@@ -8,7 +8,7 @@ export const typeFlag = {
   dir_type: '5',
   fifo_type: '6',
   cont_type: '7'
-}
+} as const
   
 export const mod = {
   ts_uid: 0o4000,
@@ -52,6 +52,6 @@ export interface DecodeOptions {
   allowunknowFormat: boolean
 }
 
-export declare function encode(options: HeadOptions): Uint8Array | undefined
+export declare function encode(options: HeadOptions): Uint8Array 
 
-export declare function decode(b: Uint8Array, options: DecodeOptions): Partial<HeadOptions> | undefined
+export declare function decode(b: Uint8Array, options: DecodeOptions): Partial<HeadOptions>

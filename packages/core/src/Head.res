@@ -10,9 +10,8 @@ type u8 = Uint8Array.t
 
 external unsafe_u8_mark: string => u8 = "%identity"
 
-%%private(let max_file_content_size = 0o77777777777)
-
 // https://www.gnu.org/software/tar/manual/html_node/Standard.html
+
 type posixHead = {
   name: u8, // fixedLength 100 offeset 0
   mode: u8, // fixedLength 8 offeset 100

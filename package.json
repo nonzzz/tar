@@ -4,9 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "res:build": "rescript",
-    "res:dev": "rescript -w",
-    "dev": "rescript -w"
+    "test": "pnpm --dir packages/core test"
   },
   "keywords": [],
   "author": "",
