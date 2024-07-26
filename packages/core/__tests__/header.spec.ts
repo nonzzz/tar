@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { encode, typeFlag } from '../dist'
+import { encode } from '../dist'
 import type { HeadOptions } from '../dist'
 
 describe('Headers', () => {
@@ -12,7 +12,7 @@ describe('Headers', () => {
         gid: 0,
         size: 1024,
         mtime,
-        typeflag: typeFlag.areg_type,
+        typeflag: '\0',
         linkname: '',
         devmajor: 0,
         devminor: 0,
@@ -21,8 +21,16 @@ describe('Headers', () => {
         gname: 'admin'
 
       } 
+
+      const decoder = new TextDecoder()
+
+      const decode = decoder.decode.bind(decoder)
+
       const block = encode(header)
-      expect(new TextDecoder().decode(block.subarray(0, 100)).replace(/\0+$/, '')).toBe('foo.tsx')
+      expect(block.length).toBe(512)
+      expect(decode(block.subarray(0, 100)).replace(/\0+$/, '')).toBe('foo.tsx')
+      expect(decode(block.subarray(265, 265 + 32)).replace(/\0+$/, '')).toBe('nonzzz')
+      expect(decode(block.subarray(297, 297 + 32)).replace(/\0+$/, '')).toBe('admin')
     })
   })
 })

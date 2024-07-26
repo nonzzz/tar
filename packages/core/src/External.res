@@ -56,6 +56,7 @@ type textDecodeOptions = {
 
 let textEncode = (s: string) => s->_encoder.encode
 let textDecode = (u8: Uint8Array.t) => u8->_decoder.decode
+
 let textDecodeWithOptions = (u8: Uint8Array.t, options: option<textDecodeOptions>) => {
   switch options {
   | None => textDecode(u8)
@@ -66,7 +67,7 @@ let textDecodeWithOptions = (u8: Uint8Array.t, options: option<textDecodeOptions
   }
 }
 
-let octalEncode = (u: int, fixed: option<int>) => {
+let octalEncode = (u: int, ~fixed=?) => {
   let o = u->Js.Int.toStringWithRadix(~radix=8)
   switch fixed {
   | None => o
@@ -153,53 +154,48 @@ let indexOf = (block, num, offset, end_) => {
   loop(offset)
 }
 
-let octalDecode = (b: Uint8Array.t, options: octalDecodeOptions) => {
-  let offset = switch options.offset {
+let octalDecode = (b: Uint8Array.t, len: int, ~offset=?) => {
+  let offset = switch offset {
   | None => 0
   | Some(o) => o
   }
-
-  switch b->Uint8Array.unsafe_get(offset) {
-  | None => Error.make("Internal error: 'octalDecode' out of bounds.")->Error.raise
-  | Some(byte) =>
-    if byte->land(0x80) > 0 {
-      parse256(b)
-    } else {
-      let mutOffset = ref(offset)
-      let range = b->Uint8Array.subarray(mutOffset.contents, mutOffset.contents + options.len)
-      while (
-        mutOffset.contents < range->Uint8Array.length &&
-          range->Uint8Array.get(mutOffset.contents) == 32
-      ) {
-        mutOffset := mutOffset.contents + 1
-      }
-
-      let end =
-        range
-        ->Uint8Array.array_like
-        ->indexOf(32, mutOffset.contents, b->Uint8Array.length)
-        ->clamp(range->Uint8Array.length, range->Uint8Array.length)
-
-      while mutOffset.contents < end && range->Uint8Array.get(mutOffset.contents) == 0 {
-        mutOffset := mutOffset.contents + 1
-      }
-
-      Some(
-        if end === mutOffset.contents {
-          0
-        } else {
-          range
-          ->Uint8Array.subarray(mutOffset.contents, end)
-          ->textDecode
-          ->Float.parseInt
-          ->Float.toInt
-        },
-      )
+  if b->Uint8Array.get(offset)->land(0x80) > 0 {
+    b->parse256
+  } else {
+    let mutOffset = ref(offset)
+    let range = b->Uint8Array.subarray(mutOffset.contents, mutOffset.contents + len)
+    while (
+      mutOffset.contents < range->Uint8Array.length &&
+        range->Uint8Array.get(mutOffset.contents) == 32
+    ) {
+      mutOffset := mutOffset.contents + 1
     }
+
+    let end =
+      range
+      ->Uint8Array.array_like
+      ->indexOf(32, mutOffset.contents, b->Uint8Array.length)
+      ->clamp(range->Uint8Array.length, range->Uint8Array.length)
+
+    while mutOffset.contents < end && range->Uint8Array.get(mutOffset.contents) == 0 {
+      mutOffset := mutOffset.contents + 1
+    }
+
+    Some(
+      if end === mutOffset.contents {
+        0
+      } else {
+        range
+        ->Uint8Array.subarray(mutOffset.contents, end)
+        ->textDecode
+        ->Float.parseInt
+        ->Float.toInt
+      },
+    )
   }
 }
 
-let strDecode = (b: Uint8Array.t, offset: int, len: int, encoding: option<string>) => {
+let strDecode = (b: Uint8Array.t, offset: int, len: int, ~encoding=?) => {
   let encoding = switch encoding {
   | None => "utf-8"
   | Some(e) => e
@@ -208,5 +204,4 @@ let strDecode = (b: Uint8Array.t, offset: int, len: int, encoding: option<string
   b
   ->Uint8Array.subarray(offset, b->Uint8Array.array_like->indexOf(0, offset, offset + len))
   ->textDecodeWithOptions(Some({encoding, ignoreBOM: false, fatal: false}))
-  ->Some
 }
