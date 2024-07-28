@@ -48,7 +48,6 @@ async function main() {
       return `export * from './${relativePath}'`
     })
     .join('\n')
-  console.log(content)
   await fsp.writeFile(entryPath, content, 'utf-8')
 }
 
