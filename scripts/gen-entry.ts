@@ -2,10 +2,10 @@ import fs from 'node:fs'
 import fsp from 'node:fs/promises'
 import path from 'node:path'
 
-const rescriptOutputPath = path.join(process.cwd(), '/lib/es6/src')
+const rescriptOutputPath = path.join(process.cwd(), '/lib/es6/internal')
 const entryPath = path.join(rescriptOutputPath, 'index.mjs')
 
-const skip = ['External.mjs']
+const skip = ['External.mjs', 'Url.mjs', 'Fs.mjs', 'Stream.mjs', 'StringEncoding.mjs']
 
 export async function readAll(entry: string) {
   const paths = await Promise.all((await fsp.readdir(entry)).map((dir) => path.join(entry, dir)))
@@ -48,6 +48,7 @@ async function main() {
       return `export * from './${relativePath}'`
     })
     .join('\n')
+  console.log(content)
   await fsp.writeFile(entryPath, content, 'utf-8')
 }
 

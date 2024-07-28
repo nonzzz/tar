@@ -2,7 +2,7 @@
   "name": "tar",
   "sources": [
     {
-      "dir": "src",
+      "dir": "internal",
       "subdirs": true
     }
   ],
