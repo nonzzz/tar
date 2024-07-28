@@ -1,13 +1,26 @@
 {
   "name": "tar",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "version": "0.0.0",
+  "description": "It's an implementation based on the `ustar` format",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "module": "dist/index.mjs",
   "scripts": {
-    "test": "pnpm --dir packages/core test"
+    "dev": "rescript -w",
+    "prebuild": "rescript",
+    "build": "tsx scripts/gen-entry.ts && rollup --config rollup.config.mts --configPlugin swc3",
+    "pretest": "sh -c '[ -d ./dist ] && echo \"Directory exists. Skipping build.\" || (echo \"Directory does not exist. Running build...\" && pnpm run build)'",
+    "test": "vitest"
   },
-  "keywords": [],
-  "author": "",
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "keywords": ["archive", "tar", "pack", "extract", "ustar"],
+  "author": "Kanno",
   "license": "MIT",
   "devDependencies": {
     "@rescript/core": "^1.5.2",
