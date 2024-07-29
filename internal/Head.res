@@ -79,16 +79,16 @@ module EncodeHeadOptions = {
     gid: option<int>,
     size: int,
     mtime: int,
-    chksum: int,
+    // chksum: int,
     typeflag: TypeFlag.t,
     linkname: option<string>,
-    magic: string,
-    version: string,
+    // magic: string,
+    // version: string,
     uname: option<string>,
     gname: option<string>,
     devmajor: option<int>,
     devminor: option<int>,
-    prefix: string,
+    // prefix: string,
   }
 
   type typed = {
@@ -139,7 +139,7 @@ let chksum = (block: u8) => {
 
 // Files can contain at most 8 GiB (2^33 bytes = 8,589,934,592 bytes).
 // So the size after get octal num max length is 12.
-let _encode = (opt: EncodeHeadOptions.t) => {
+let encodeImpl = (opt: EncodeHeadOptions.t) => {
   let {options, block} = opt->EncodeHeadOptions.make
 
   let nameMeta: EncodeHeadOptions.mutNameMeta = {
@@ -260,7 +260,7 @@ let _encode = (opt: EncodeHeadOptions.t) => {
   }
 }
 
-let _decode = (b: u8, opt: DecodeHeadOptions.t) => {
+let decodeImpl = (b: u8, opt: DecodeHeadOptions.t) => {
   let {filenameEncoding} = opt
 
   let name = b->strDecode(0, 100, ~encoding=filenameEncoding)
@@ -319,9 +319,9 @@ let getExn: result<'a, ErrorMessage.e> => 'a = x =>
   }
 
 let encode = (opt: EncodeHeadOptions.t) => {
-  _encode(opt)->getExn
+  encodeImpl(opt)->getExn
 }
 
 let decode = (b: u8, opt: DecodeHeadOptions.t) => {
-  _decode(b, opt)->getExn
+  decodeImpl(b, opt)->getExn
 }
