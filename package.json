@@ -7,8 +7,7 @@
   "module": "dist/index.mjs",
   "scripts": {
     "dev": "rescript -w",
-    "prebuild": "rescript",
-    "build": "tsx scripts/gen-entry.ts && rollup --config rollup.config.mts --configPlugin swc3",
+    "build": "rollup --config rollup.config.mts --configPlugin swc3",
     "pretest": "sh -c '[ -d ./dist ] && echo \"Directory exists. Skipping build.\" || (echo \"Directory does not exist. Running build...\" && pnpm run build)'",
     "test": "vitest"
   },

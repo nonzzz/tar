@@ -97,10 +97,15 @@ const dec =/* @__PURE__ */ new TextDecoder()
 function encodeString(s: string) {
   return enc.encode(s)
 }
+/* @__NO_SIDE_EFFECTS__ */
+function indexOf(b: Uint8Array, c: number, start: number) {
+  // 
+}
 
 /* @__NO_SIDE_EFFECTS__ */
-function decodeString(b: Uint8Array) {
-  return dec.decode(b)
+function decodeString(b: Uint8Array, offset: number, length: number, encoding = 'utf-8') {
+  // return dec.decode(b)
+  b.subarray(offset, offset + length)
 }
 
 /* @__NO_SIDE_EFFECTS__ */
@@ -210,6 +215,6 @@ const defaultDecodeOptions = {
 export function decode(b: Uint8Array, options?: DecodingHeadOptions) {
   const opts = options = { ...defaultDecodeOptions, ...options }
   const { filenameEncoding, allowUnknownFormat } = opts
-  const name = decodeString(b.slice(0, 100))
+  // const name = decodeString(b.slice(0, 100))
   // const mode = parseInt(decodeString(b.slice(100, 108)), 8)
 }
