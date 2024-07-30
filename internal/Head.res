@@ -31,6 +31,51 @@ type posixHead = {
   prefix: u8, // fixedLength 155 offeset 345
 }
 
+// https://www.gnu.org/software/coreutils/manual/html_node/Numeric-Modes.html
+
+// For some resaon if we use as enums but when we call lor func. It will use the
+// enum index as the value.
+module Mod = {
+  type t = private int
+  @inline("ts_uid")
+  let ts_uid = 0o4000
+  @inline("ts_gid")
+  let ts_gid = 0o2000
+  @inline("ts_vtx")
+  let ts_vtx = 0o1000
+  @inline("tu_read")
+  let tu_read = 0o0400
+  @inline("tu_write")
+  let tu_write = 0o0200
+  @inline("tu_exec")
+  let tu_exec = 0o0100
+  @inline("tg_read")
+  let tg_read = 0o0040
+  @inline("tg_write")
+  let tg_write = 0o0020
+  @inline("tg_exec")
+  let tg_exec = 0o0010
+  @inline("to_read")
+  let to_read = 0o0004
+  @inline("to_write")
+  let to_write = 0o0002
+  @inline("to_exec")
+  let to_exec = 0o0001
+}
+
+external lor: ('a, 'a) => 'a = "%orint"
+
+let f_mod = Mod.tu_read->lor(Mod.tu_write)->lor(Mod.tg_read)->lor(Mod.to_read)
+
+let d_mod =
+  Mod.tu_read
+  ->lor(Mod.tu_write)
+  ->lor(Mod.tu_exec)
+  ->lor(Mod.tg_read)
+  ->lor(Mod.tg_exec)
+  ->lor(Mod.to_read)
+  ->lor(Mod.to_exec)
+
 module TypeFlag = {
   type t =
     | @as("0") REG_TYPE

@@ -57,14 +57,17 @@ module Pack = {
     }
 
     let receiver = () => {
-      let b = Stream.Readable.makeOptions()
-      Js.log(b)
+      // let r = Stream.Readable.make()
       Js.log("receiver")
     }
   }
 
   let add: addFn = (file: Uint8Array.t, opts: packOption) => {
-    let meta = Impl.resolveHeadOptions(file, opts)
+    // Impl.resolveHeadOptions(file, opts)
+    Js.log("x")
+    // let resolvedOptions = Impl.resolveHeadOptions(file, opts)
+    // let r = encodeImpl(resolvedOptions)
+    // Js.log(r)
   }
 
   let done: doneFn = () => ()
@@ -75,7 +78,6 @@ module Pack = {
       done,
     }
   }
-  include Impl
 }
 
 let pack = () => Pack.make()

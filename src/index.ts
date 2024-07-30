@@ -10,7 +10,7 @@ const typeFlag = {
   cont_type: '7'
 } as const
   
-export const mod = {
+const mod = {
   ts_uid: 0o4000,
   ts_gid: 0o2000,
   ts_vtx: 0o1000,
@@ -28,6 +28,12 @@ export const mod = {
 export type TypeFlag = typeof typeFlag[keyof typeof typeFlag]
 
 export type Mod = typeof mod[keyof typeof mod]
+
+// export const f_mod = mod.
+
+export declare const f_mod: number
+
+export declare const d_mod: number
 
 export interface HeadOptions {
   name: string
@@ -55,3 +61,10 @@ export interface DecodeOptions {
 export declare function encode(options: HeadOptions): Uint8Array 
 
 export declare function decode(b: Uint8Array, options: DecodeOptions): Partial<HeadOptions>
+
+export interface PackInstance {
+  add: (binary: Uint8Array, options: HeadOptions) => void
+  done: () => void
+}
+
+export declare function pack(): PackInstance
