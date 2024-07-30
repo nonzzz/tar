@@ -18,5 +18,10 @@
   ],
   "bsc-flags": [
     "-open RescriptCore"
-  ]
+  ],
+  "warnings": {
+    "number": "A-4-40-41-42-43-44+101-102-103",
+    "error": "false"
+  },
+  "uncurried": false
 }

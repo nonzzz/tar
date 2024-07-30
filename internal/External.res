@@ -1,3 +1,5 @@
+@@uncurried
+
 // Alought rescript provide offical Uin8Array module, but it's big for chunk.
 // So we make a simple one for our own use.(For better tree shaking)
 
@@ -20,7 +22,7 @@ module Uint8Array = {
     setArrayOffset(~form=src, ~to=dst, ~offset)
   }
 
-  @send external reducei: (t, (. 'b, elt, int) => 'b, 'b) => 'b = "reduce"
+  @send external reducei: (t, ('b, elt, int) => 'b, 'b) => 'b = "reduce"
 
   @send external subarray: (t, int, int) => t = "subarray"
 }

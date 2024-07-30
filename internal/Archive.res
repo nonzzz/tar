@@ -25,6 +25,19 @@ module Pack = {
 
   type self = {add: addFn, done: doneFn}
 
+  module Receiver = {
+    let make = () => {
+      open Stream.Readable
+      let options = makeOptions(
+        ~destroy=@this (_, ~error, ~callback) => callback(~error=Js.Nullable.toOption(error)),
+        ~read=@this (_, ~size as _) => (),
+        (),
+      )
+
+      make(options)
+    }
+  }
+
   module Impl = {
     let state: mutableSate = {finished: false}
     let resolveHeadOptions = (binary: Uint8Array.t, opts: packOption) => {
@@ -51,28 +64,43 @@ module Pack = {
 
       defaultOptions
     }
-    let transport = () => {
-      //
-      Js.log("transport")
+
+    let transport = (file: Uint8Array.t, opts: Head.EncodeHeadOptions.t) => {
+      open Stream.Readable
+      let options = makeOptions(
+        ~destroy=@this (_, ~error, ~callback) => callback(~error=Js.Nullable.toOption(error)),
+        ~read=@this (_, ~size as _) => (),
+        (),
+      )
+
+      make(options)
     }
 
-    let receiver = () => {
-      // let r = Stream.Readable.make()
-      Js.log("receiver")
-    }
+    // let receiver = () => {
+    //   open Stream.Writable
+    //   let options = makeOptions(
+    //     ~destroy=@this (_, ~error, ~callback) => callback(~error=Js.Nullable.toOption(error)),
+    //     ~write=@this
+    //     (_, ~data, ~encoding as _, ~callback) => {
+    //       Js.log(data)
+    //       callback(~error=None)
+    //     },
+    //     (),
+    //   )
+    //   make(options)
+    // }
   }
 
   let add: addFn = (file: Uint8Array.t, opts: packOption) => {
-    // Impl.resolveHeadOptions(file, opts)
-    Js.log("x")
-    // let resolvedOptions = Impl.resolveHeadOptions(file, opts)
-    // let r = encodeImpl(resolvedOptions)
-    // Js.log(r)
+    let resolvedOptions = Impl.resolveHeadOptions(file, opts)
+    let o = Impl.transport(file, resolvedOptions)
+    Js.log(o)
   }
 
   let done: doneFn = () => ()
 
   let make = (): self => {
+    let receiver = Receiver.make()
     {
       add,
       done,
