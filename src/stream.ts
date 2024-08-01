@@ -15,6 +15,10 @@ function createWriteableStream(options?: WritableOptions) {
   return new Writable(options)
 }
 
+const PACK_ERROR_MESSAGES = {
+  HAS_DONE: 'Can\'t add new entry after calling done()'
+}
+
 // New archives should be created using REGTYPE.
 const defaultPackOptions = {
   mode: F_MODE,
@@ -29,7 +33,9 @@ export class Pack {
   private reader: Readable
   private finished: boolean
   constructor() {
-    this.reader = createReadbleStream()
+    this.reader = createReadbleStream({
+      read() {}
+    })
     this.finished = false
   }
 
@@ -40,6 +46,9 @@ export class Pack {
   }
 
   add(binary: Uint8Array, options: PackOptions) {
+    if (this.finished) {
+      throw new Error(PACK_ERROR_MESSAGES.HAS_DONE)
+    }
     const resolved = this.resolveHeadOptions(binary.length, options)
     this.transport(binary, resolved)
   }
@@ -47,8 +56,6 @@ export class Pack {
   done() {
     if (this.finished) return
     this.finished = true
-    // The end of tar is two 512 byte blocks of zeros
-    // For performance reasone, we should call push as less as possible
     this.reader.push(new Uint8Array(1024))
     this.reader.push(null)
   }
@@ -68,7 +75,10 @@ export class Pack {
     writer.write(binary)
   }
 
-  receiver() {
+  get receiver() {
+    if (!this.finished) {
+      this.done()
+    }
     return this.reader
   }
 }

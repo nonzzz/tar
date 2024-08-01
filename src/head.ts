@@ -1,5 +1,6 @@
 /* eslint-disable no-labels */
 // https://www.gnu.org/software/tar/manual/html_node/Standard.html
+// https://www.gnu.org/software/tar/manual/html_node/Portability.html#Portability
 
 type uint8 = number
 
@@ -60,7 +61,11 @@ export type TypeFlag = typeof TypeFlag[keyof typeof TypeFlag]
 
 export const Magic = {
   T_MAGIC: 'ustar',
-  T_VERSION: '00'
+  T_VERSION: '00',
+  WHITE_SPACE: 32, // ascii code
+  NULL_CHAR: 0, // ascii code
+  NEGATIVE_256: 0xFF,
+  POSITIVE_256: 0x80
 }
 
 export interface EncodingHeadOptions {
@@ -86,30 +91,28 @@ export interface DecodingHeadOptions {
 export const ERROR_MESSAGES = {
   INVALID_ENCODING_NAME: 'Invalid name. Invalid name. Please check \'name\' is a direcotry type.',
   INVALID_ENCODING_NAME_LEN: 'Invalid name. Please check \'name\' length is less than 255 byte.',
-  INVALID_ENCODING_LINKNAME: 'Invalid linkname. Please check \'linkname\' length is less than 100 byte.'
+  INVALID_ENCODING_LINKNAME: 'Invalid linkname. Please check \'linkname\' length is less than 100 byte.',
+  INVALID_BASE256: 'Invalid base256 format'
 }
+
+// For most scens. format ustar is useful, but when we meet the large file, we should fallback to the old gnu format.
 
 const enc =/* @__PURE__ */ new TextEncoder()
 
-const dec =/* @__PURE__ */ new TextDecoder()
-
-/* @__NO_SIDE_EFFECTS__ */
 function encodeString(s: string) {
   return enc.encode(s)
 }
-/* @__NO_SIDE_EFFECTS__ */
-function indexOf(b: Uint8Array, c: number, start: number) {
-  // 
-}
 
-/* @__NO_SIDE_EFFECTS__ */
 function decodeString(b: Uint8Array, offset: number, length: number, encoding = 'utf-8') {
-  // return dec.decode(b)
-  b.subarray(offset, offset + length)
+  // filter null character
+  while (b[offset + length - 1] === Magic.NULL_CHAR) {
+    length--
+  }
+  const dec = new TextDecoder(encoding)
+  return dec.decode(b.subarray(offset, offset + length))
 }
 
-/* @__NO_SIDE_EFFECTS__ */
-function encodeOctal(b: number, fixed?: number) {
+export function encodeOctal(b: number, fixed?: number) {
   const o = b.toString(8)
   if (fixed) {
     if (o.length <= fixed) {
@@ -121,6 +124,36 @@ function encodeOctal(b: number, fixed?: number) {
   return o
 }
 
+// https://www.gnu.org/software/tar/manual/html_node/Extensions.html
+function parse256(b: Uint8Array) {
+  const positive = b[0] === Magic.POSITIVE_256 ? true : false
+  return b.reduceRight((acc, cur, i) => {
+    return acc += cur * Math.pow(256, b.length - i - 1)
+  }, 0) * (positive ? 1 : -1)
+}
+
+export function decodeOctal(b: Uint8Array, offset: number, length: number) {
+  const range = b.subarray(offset, offset + length)
+  // for old gnu format
+  if (range[0] & Magic.POSITIVE_256) {
+    if (range[0] === Magic.POSITIVE_256 || range[0] === Magic.NEGATIVE_256) {
+      return parse256(range)
+    }
+    throw new Error(ERROR_MESSAGES.INVALID_BASE256)
+  }
+
+  // [48...48, 32, 0] // len = 8
+  let pos = 0
+  console.log(range)
+  for (;;) {
+    if (range[pos] === Magic.WHITE_SPACE) {
+      break
+    }
+    pos++
+  }
+  return parseInt(decodeString(range, 0, pos), 8)
+}
+
 function chksum(b: Uint8Array) {
   return b.reduce((acc, cur, i) => {
     if (i >= 148 && i < 156) {
@@ -130,7 +163,6 @@ function chksum(b: Uint8Array) {
   }, 0)
 }
 
-/* @__NO_SIDE_EFFECTS__ */
 export function encode(options: EncodingHeadOptions) {
   const block = new Uint8Array(512)
   let name = options.name
@@ -211,10 +243,12 @@ const defaultDecodeOptions = {
   allowUnknownFormat: false
 }
 
-/* @__NO_SIDE_EFFECTS__ */
 export function decode(b: Uint8Array, options?: DecodingHeadOptions) {
   const opts = options = { ...defaultDecodeOptions, ...options }
   const { filenameEncoding, allowUnknownFormat } = opts
-  // const name = decodeString(b.slice(0, 100))
+  const name = decodeString(b, 0, 100, filenameEncoding)
+  const mode = decodeOctal(b, 100, 8)
+
+  // const mode = 
   // const mode = parseInt(decodeString(b.slice(100, 108)), 8)
 }
