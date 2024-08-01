@@ -112,7 +112,7 @@ function decodeString(b: Uint8Array, offset: number, length: number, encoding = 
   return dec.decode(b.subarray(offset, offset + length))
 }
 
-export function encodeOctal(b: number, fixed?: number) {
+function encodeOctal(b: number, fixed?: number) {
   const o = b.toString(8)
   if (fixed) {
     if (o.length <= fixed) {
@@ -132,7 +132,7 @@ function parse256(b: Uint8Array) {
   }, 0) * (positive ? 1 : -1)
 }
 
-export function decodeOctal(b: Uint8Array, offset: number, length: number) {
+function decodeOctal(b: Uint8Array, offset: number, length: number) {
   const range = b.subarray(offset, offset + length)
   // for old gnu format
   if (range[0] & Magic.POSITIVE_256) {
@@ -248,6 +248,33 @@ export function decode(b: Uint8Array, options?: DecodingHeadOptions) {
   const { filenameEncoding, allowUnknownFormat } = opts
   const name = decodeString(b, 0, 100, filenameEncoding)
   const mode = decodeOctal(b, 100, 8)
+  const uid = decodeOctal(b, 108, 8)
+  const gid = decodeOctal(b, 116, 8)
+  const size = decodeOctal(b, 124, 12)
+  const mtime = decodeOctal(b, 136, 12)
+  const typeflag = b[156] as unknown as TypeFlag
+  const linkname = b[157] === Magic.NULL_CHAR ? null : decodeString(b, 157, 100, filenameEncoding)
+  const uname = decodeString(b, 265, 32)
+  const gname = decodeString(b, 297, 32)
+  const devmajor = decodeOctal(b, 329, 8)
+  const devminor = decodeOctal(b, 337, 8)
+
+  // const 
+  
+  return {
+    name,
+    mode,
+    uid,
+    gid,
+    size,
+    mtime,
+    typeflag,
+    linkname,
+    uname,
+    gname,
+    devmajor,
+    devminor
+  }
 
   // const mode = 
   // const mode = parseInt(decodeString(b.slice(100, 108)), 8)
