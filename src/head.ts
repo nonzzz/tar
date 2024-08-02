@@ -85,23 +85,23 @@ export interface EncodingHeadOptions {
 
 export interface DecodingHeadOptions {
   filenameEncoding?: string
-  allowUnknownFormat?: boolean
 }
 
 export const ERROR_MESSAGES = {
   INVALID_ENCODING_NAME: 'Invalid name. Invalid name. Please check \'name\' is a direcotry type.',
   INVALID_ENCODING_NAME_LEN: 'Invalid name. Please check \'name\' length is less than 255 byte.',
   INVALID_ENCODING_LINKNAME: 'Invalid linkname. Please check \'linkname\' length is less than 100 byte.',
-  INVALID_BASE256: 'Invalid base256 format'
+  INVALID_BASE256: 'Invalid base256 format',
+  INVALID_OCTAL_FORMAT: 'Invalid octal format',
+  NOT_INIT: 'Not init',
+  INVALID_CHKSUM: 'Invalid tar header. Maybe the tar is corrupted or it needs to be gunzipped?'
 }
 
 // For most scens. format ustar is useful, but when we meet the large file, we should fallback to the old gnu format.
 
 const enc =/* @__PURE__ */ new TextEncoder()
 
-function encodeString(s: string) {
-  return enc.encode(s)
-}
+const encodeString = enc.encode.bind(enc)
 
 function decodeString(b: Uint8Array, offset: number, length: number, encoding = 'utf-8') {
   // filter null character
@@ -144,20 +144,24 @@ function decodeOctal(b: Uint8Array, offset: number, length: number) {
 
   // [48...48, 32, 0] // len = 8
   let pos = 0
-  console.log(range)
   for (;;) {
     if (range[pos] === Magic.WHITE_SPACE) {
       break
+    }
+    if (pos >= length) {
+      throw new Error(ERROR_MESSAGES.INVALID_OCTAL_FORMAT)
     }
     pos++
   }
   return parseInt(decodeString(range, 0, pos), 8)
 }
 
+// https://www.gnu.org/software/tar/manual/html_node/Checksumming.html#Checksumming
+
 function chksum(b: Uint8Array) {
-  return b.reduce((acc, cur, i) => {
+  return b.subarray(0, 512).reduce((acc, cur, i) => {
     if (i >= 148 && i < 156) {
-      return acc + 32
+      return acc + Magic.WHITE_SPACE
     }
     return acc + cur
   }, 0)
@@ -239,27 +243,39 @@ export function encode(options: EncodingHeadOptions) {
 }
 
 const defaultDecodeOptions = {
-  filenameEncoding: 'utf-8',
-  allowUnknownFormat: false
+  filenameEncoding: 'utf-8'
 }
 
 export function decode(b: Uint8Array, options?: DecodingHeadOptions) {
   const opts = options = { ...defaultDecodeOptions, ...options }
-  const { filenameEncoding, allowUnknownFormat } = opts
-  const name = decodeString(b, 0, 100, filenameEncoding)
+  const { filenameEncoding } = opts
+  let name = decodeString(b, 0, 100, filenameEncoding)
   const mode = decodeOctal(b, 100, 8)
   const uid = decodeOctal(b, 108, 8)
   const gid = decodeOctal(b, 116, 8)
   const size = decodeOctal(b, 124, 12)
   const mtime = decodeOctal(b, 136, 12)
-  const typeflag = b[156] as unknown as TypeFlag
+  let typeflag = b[156] as unknown as TypeFlag
   const linkname = b[157] === Magic.NULL_CHAR ? null : decodeString(b, 157, 100, filenameEncoding)
   const uname = decodeString(b, 265, 32)
   const gname = decodeString(b, 297, 32)
   const devmajor = decodeOctal(b, 329, 8)
   const devminor = decodeOctal(b, 337, 8)
+  const c = chksum(b) 
+  if (c === 256) throw new Error(ERROR_MESSAGES.NOT_INIT)
+  if (c !== decodeOctal(b, 148, 8)) {
+    throw new Error(ERROR_MESSAGES.INVALID_CHKSUM)
+  }
+  // 
+  if (Magic.T_MAGIC === decodeString(b, 257, 6)) {
+    if (b[345]) {
+      name = decodeString(b, 345, 155, filenameEncoding) + '/' + name
+    }
+  }
 
-  // const 
+  if (typeflag === TypeFlag.REG_TYPE && name[name.length - 1] === '/') {
+    typeflag = TypeFlag.DIR_TYPE
+  }
   
   return {
     name,
@@ -274,8 +290,6 @@ export function decode(b: Uint8Array, options?: DecodingHeadOptions) {
     gname,
     devmajor,
     devminor
+  
   }
-
-  // const mode = 
-  // const mode = parseInt(decodeString(b.slice(100, 108)), 8)
 }

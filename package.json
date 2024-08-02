@@ -8,7 +8,6 @@
   "scripts": {
     "dev": "rollup --config rollup.config.mts --configPlugin swc3 --watch",
     "build": "rollup --config rollup.config.mts --configPlugin swc3",
-    "pretest": "sh -c '[ -d ./dist ] && echo \"Directory exists. Skipping build.\" || (echo \"Directory does not exist. Running build...\" && pnpm run build)'",
     "test": "vitest"
   },
   "exports": {
@@ -22,14 +21,12 @@
   "author": "Kanno",
   "license": "MIT",
   "devDependencies": {
-    "@rescript/core": "^1.5.2",
     "@rollup/plugin-node-resolve": "^15.2.3",
     "@types/node": "^20.14.11",
     "@vitest/coverage-v8": "^2.0.4",
     "dprint": "^0.47.2",
     "eslint": "^8.57.0",
     "eslint-config-kagura": "^2.2.1",
-    "rescript": "^11.1.2",
     "rollup": "^4.19.0",
     "rollup-plugin-dts": "^6.1.1",
     "rollup-plugin-swc3": "^0.11.2",

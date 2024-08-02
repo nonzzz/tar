@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { encode } from '../dist'
-import type { HeadOptions } from '../dist'
+import { encode } from '../src'
+import type { EncodingHeadOptions } from '../src'
 
 describe('Headers', () => {
   describe('Uniform Standard Type Archive', () => {
     it('Encoding', () => {
       const mtime = Math.floor(Date.now() / 1000)
-      const header = <HeadOptions>{
+      const header = <EncodingHeadOptions>{
         name: 'foo.tsx',
         uid: 0,
         gid: 0,
