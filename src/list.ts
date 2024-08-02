@@ -1,22 +1,71 @@
-class Elt {
-  constructor() {}
-
-  push() {}
-
-  shift() {}
-}
-
-export class List {
-  private cap: number
-  constructor(cap = 16) {
-    this.cap = cap
+/* eslint-disable no-use-before-define */
+class Elt <T> {
+  items: Array<T | undefined>
+  pos: number
+  mask: number
+  rev: number
+  next: Elt<T> | null
+  constructor(cap: number) {
+    this.items = new Array(cap)
+    this.pos = 0
+    this.rev = 0
+    this.mask = cap - 1
+    this.next = null
   }
 
-  push() {
-    // 
+  get leak() {
+    return this.items[this.pos] !== undefined
+  }
+
+  push(element: T) {
+    this.items[this.pos] = element
+    this.pos = (this.pos + 1) & this.mask
   }
 
   shift() {
-    // 
+    const first = this.items[this.rev]
+    if (first === undefined) return undefined
+    this.items[this.rev] = undefined
+    this.rev = (this.rev + 1) & this.mask
+    return first
   }
+}
+
+export class List<T> {
+  private cap: number
+  private head: Elt<T>
+  private tail: Elt<T>
+  length: number
+  constructor() {
+    this.cap = 16
+    this.length = 0 
+    this.head = new Elt(this.cap)
+    this.tail = this.head
+  }
+
+  push(elt: T) {
+    if (this.head.leak) {
+      const prev = this.head
+      prev.next = new Elt(this.head.items.length * 2)
+      this.head = prev.next
+    }
+    this.head.push(elt)
+    this.length++ 
+  }
+
+  shift() {
+    if (this.length !== 0) this.length--
+    const value = this.tail.shift()
+    if (value === undefined && this.tail.next) {
+      const next = this.tail.next
+      this.tail.next = null
+      this.tail = next
+      return this.tail.shift()
+    }
+    return value
+  }
+}
+
+export function createList<T>() {
+  return new List<T>()
 }
