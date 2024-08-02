@@ -17,7 +17,13 @@
       "types": "./dist/index.d.ts"
     }
   },
-  "keywords": ["archive", "tar", "pack", "extract", "ustar"],
+  "keywords": [
+    "archive",
+    "tar",
+    "pack",
+    "extract",
+    "ustar"
+  ],
   "author": "Kanno",
   "license": "MIT",
   "devDependencies": {

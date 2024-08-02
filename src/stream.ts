@@ -87,12 +87,27 @@ export function createPack() {
   return new Pack()
 }
 
-export class Extract {}
+export class Extract {
+  private writer: Writable
+  constructor() {
+    this.writer = createWriteableStream({
+      write(chunk, encoding, callback) {
+        callback()
+      }
+    })
+  }
+
+  get receiver() {
+    return this.writer
+  }
+}
 
 export function createExtract() {
   return new Extract()
 }
 
-const pack = createPack()
-
-pack.add(new Uint8Array(), { filename: 'test.txt' })
+// const extract = createExtract() 
+// const tarball = fs.createReadStream('foo.tar')
+// extract.
+// tarball.pipe(extract.receiver)
+// 
