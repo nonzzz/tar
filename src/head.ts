@@ -88,7 +88,7 @@ export interface DecodingHeadOptions {
 }
 
 export const ERROR_MESSAGES = {
-  INVALID_ENCODING_NAME: 'Invalid name. Invalid name. Please check \'name\' is a direcotry type.',
+  INVALID_ENCODING_NAME: 'Invalid name. Invalid name. Please check \'name\' is a directory type.',
   INVALID_ENCODING_NAME_LEN: 'Invalid name. Please check \'name\' length is less than 255 byte.',
   INVALID_ENCODING_LINKNAME: 'Invalid linkname. Please check \'linkname\' length is less than 100 byte.',
   INVALID_BASE256: 'Invalid base256 format',
@@ -255,7 +255,8 @@ export function decode(b: Uint8Array, options?: DecodingHeadOptions) {
   const gid = decodeOctal(b, 116, 8)
   const size = decodeOctal(b, 124, 12)
   const mtime = decodeOctal(b, 136, 12)
-  let typeflag = b[156] as unknown as TypeFlag
+  // convert as enum
+  let typeflag = b[156] === 0 ? TypeFlag.AREG_TYPE : (b[156] - 48) + '' as unknown as TypeFlag
   const linkname = b[157] === Magic.NULL_CHAR ? null : decodeString(b, 157, 100, filenameEncoding)
   const uname = decodeString(b, 265, 32)
   const gname = decodeString(b, 297, 32)
