@@ -2,18 +2,16 @@
 
 It's an implementation based on the `ustar` format. support pack field. This package only provides low-level API's.
 
-## Install
+WIP.
 
-```bash
-$ yarn add tar-archive -D
+### Sponsors
 
-# or
+<p align="center">
+  <a href="https://cdn.jsdelivr.net/gh/nonzzz/sponsors/sponsorkit/sponsors.svg">
+    <img src="https://cdn.jsdelivr.net/gh/nonzzz/sponsors/sponsorkit/sponsors.svg"/>
+  </a>
+</p>
 
-$ npm install tar-arhive -D
-```
-
-## Related
-
-A low-level lib with a base on ustar format and support for pax.
+### Related
 
 - [tar](https://www.gnu.org/software/tar/manual/html_node/Standard.html)
