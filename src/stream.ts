@@ -62,6 +62,11 @@ export class Pack {
     this.reader.push(null)
   }
 
+  private fix(size: number) {
+    const padding = (512 - (size % 512)) % 512
+    if (padding > 0) this.reader.push(new Uint8Array(padding))
+  }
+
   private transport(binary: Uint8Array, resolvedOptions: EncodingHeadOptions) {
     const writer = createWriteableStream({
       write: (chunk, encoding, callback) => {
@@ -70,11 +75,12 @@ export class Pack {
         callback()
       },
       final: (callback) => {
-        this.reader.push(null)
+        this.reader.push(this.fix(resolvedOptions.size))
         callback()
       }
     })
     writer.write(binary)
+    writer.end()
   }
 
   get receiver() {
@@ -163,6 +169,11 @@ export class Extract {
     })
   }
 
+  private removePadding(size: number) {
+    // Content is fixed at 512 bytes base, so we need to remove the padding.
+    return 512 - size % 512
+  }
+
   private scan() {
     try {
       if (this.matrix.bytesLen === 512 * 2) {
@@ -170,6 +181,8 @@ export class Extract {
       } 
       const head = decode(this.matrix.shift(512), this.decodeOptions)
       const b = this.matrix.shift(head.size)
+      const offset = this.removePadding(head.size)
+      this.matrix.shift(offset)
       this.writer.emit('entry', head, new Uint8Array(b))
       return true
     } catch (error) {
