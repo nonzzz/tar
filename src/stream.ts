@@ -62,19 +62,33 @@ export class Pack {
     this.reader.push(null)
   }
 
+  private fix(size: number) {
+    const padding = (512 - (size % 512)) % 512
+    if (padding > 0) this.reader.push(new Uint8Array(padding))
+  }
+
   private transport(binary: Uint8Array, resolvedOptions: EncodingHeadOptions) {
     const writer = createWriteableStream({
-      write: (chunk, encoding, callback) => {
-        this.reader.push(encode(resolvedOptions)) 
-        this.reader.push(chunk)
-        callback()
+      write: (chunk, _, callback) => {
+        try {
+          this.reader.push(encode(resolvedOptions)) 
+          this.reader.push(chunk)
+          callback()
+        } catch (error) {
+          callback(error as Error)
+        }
       },
       final: (callback) => {
-        this.reader.push(null)
+        this.reader.push(this.fix(resolvedOptions.size))
         callback()
       }
     })
-    writer.write(binary)
+    writer.write(binary, (e) => {
+      if (e) {
+        this.reader.emit('error', e)
+      }
+    })
+    writer.end()
   }
 
   get receiver() {
@@ -96,17 +110,17 @@ const FAST_BYTES_ERROR_MESSAGES = {
 class FastBytes {
   private queue: List<Uint8Array>
   bytesLen: number
-  private offset: number
-  private position: number
+  insertedBytesLen: number
+ 
   constructor() {
     this.queue = createList<Uint8Array>()
     this.bytesLen = 0
-    this.offset = 0
-    this.position = 0
+    this.insertedBytesLen = 0
   }
 
   push(b: Uint8Array) {
     this.bytesLen += b.length
+    this.insertedBytesLen += b.length
     this.queue.push(b)
   }
 
@@ -121,29 +135,16 @@ class FastBytes {
     if (!elt) {
       throw new Error(FAST_BYTES_ERROR_MESSAGES.EXCEED_BYTES_LEN)
     }
-    let bb: Uint8Array
-    const overflow = size >= elt.length
-    if (overflow) {
-      bb = new Uint8Array(size)
-      const preBinary = elt.subarray(this.offset)
-      bb.set(preBinary, 0)
-      this.queue.shift()
-      const next = this.queue.peek()!
-      const nextBinary = next.subarray(0, size - preBinary.length)
-      bb.set(nextBinary, preBinary.length)
-      this.position++
-      this.queue.update(this.position, next.subarray(size - preBinary.length)) 
-      while (size - preBinary.length - nextBinary.length > 0) {
-        bb.set(this.shift(size - preBinary.length - nextBinary.length), preBinary.length + nextBinary.length)
-      }
-    } else {
-      this.queue.update(this.position, elt.subarray(size))
-      bb = elt.subarray(0, size)
-    }
-    this.offset += size
-    this.bytesLen -= size
 
-    return bb
+    const b = new Uint8Array(size)
+    this.queue.shift()
+    const bb = elt.subarray(size)
+    if (bb.length > 0) {
+      this.queue.push(bb)
+    }
+    b.set(elt.subarray(0, size))
+    this.bytesLen -= size
+    return b
   }
 }
 
@@ -151,9 +152,21 @@ export class Extract {
   private writer: Writable
   private decodeOptions: DecodingHeadOptions
   matrix: FastBytes
+  private head: ReturnType<typeof decode>
+  private missing: number
+  private offset: number
+  private flag: boolean
+  private elt: Uint8Array | null
+  private total: number
   constructor(options: DecodingHeadOptions) {
     this.decodeOptions = options
     this.matrix = new FastBytes()
+    this.head = Object.create(null)
+    this.missing = 0
+    this.flag = false
+    this.offset = 0
+    this.elt = null
+    this.total = 0
     this.writer = createWriteableStream({
       write: (chunk, _, callback) => {
         this.matrix.push(chunk)
@@ -163,26 +176,64 @@ export class Extract {
     })
   }
 
-  private scan() {
-    try {
-      if (this.matrix.bytesLen === 512 * 2) {
-        return false
-      } 
-      const head = decode(this.matrix.shift(512), this.decodeOptions)
-      const b = this.matrix.shift(head.size)
-      this.writer.emit('entry', head, new Uint8Array(b))
-      return true
-    } catch (error) {
-      return false
+  private removePadding(size: number) {
+    const padding = (512 - (size % 512)) % 512
+    if (padding > 0) {
+      this.matrix.shift(padding)
+      return padding
     }
+
+    return 0
   }
 
   private transport() {
-    while (this.matrix.bytesLen > 0) {
-      if (this.matrix.bytesLen < 512) {
-        break
+    const decodeHead = () => {
+      try {
+        this.head = decode(this.matrix.shift(512), this.decodeOptions)
+        this.missing = this.head.size
+        this.elt = new Uint8Array(this.head.size)
+        this.flag = true
+        this.offset = 0
+        return true
+      } catch (error) {
+        this.writer.emit('error', error)
+        return false
       }
-      if (!this.scan()) return
+    }
+
+    const consume = () => {
+      const leak = this.missing > this.matrix.bytesLen
+      if (leak) {
+        const b = this.matrix.shift(this.matrix.bytesLen)
+        this.missing -= b.length
+        this.elt!.set(b, this.offset)
+        this.offset += b.length
+        return
+      }
+      this.elt!.set(this.matrix.shift(this.missing), this.offset)
+
+      this.total += this.elt!.length + 512
+      this.writer.emit('entry', this.head, this.elt!)
+      this.flag = false
+    }
+
+    while (this.matrix.bytesLen > 0) {
+      if (this.flag) {
+        consume()
+        continue
+      }
+
+      if (this.head && this.head.size && !this.flag) {
+        const padding = this.removePadding(this.head.size)
+        this.total += padding
+        this.head = Object.create(null)
+        continue
+      }
+      if (this.total + 1024 === this.matrix.insertedBytesLen) {
+        this.matrix.shift(1024)
+        return
+      }
+      if (!decodeHead()) return
     }
   }
 

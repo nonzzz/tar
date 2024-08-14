@@ -14,3 +14,7 @@ lint:
 format:
 	@echo "Formatting code..."
 	pnpm exec dprint fmt
+
+build:
+	@echo "Building project..."
+	@pnpm run build

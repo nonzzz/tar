@@ -1,8 +1,6 @@
-# Tar
+# TarMini
 
-It's an implementation based on the `ustar` format. support pack field. This package only provides low-level API's.
-
-WIP.
+It's an implementation based on the `ustar` format. This package only provides low-level API's.
 
 ### Sponsors
 
