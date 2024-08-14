@@ -1,6 +1,6 @@
 {
   "name": "tar-mini",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "It's an implementation based on the `ustar` format",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -26,6 +26,19 @@
   ],
   "author": "Kanno",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nonzzz/tar.git"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "bugs": {
+    "url": "https://github.com/nonzzz/tar/issues"
+  },
+  "homepage": "https://github.com/nonzzz/tar#readme",
   "devDependencies": {
     "@rollup/plugin-node-resolve": "^15.2.3",
     "@types/node": "^20.14.11",
