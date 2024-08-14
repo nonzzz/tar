@@ -1,5 +1,5 @@
 {
-  "name": "tar-archive",
+  "name": "tar-mini",
   "version": "0.0.0",
   "description": "It's an implementation based on the `ustar` format",
   "main": "dist/index.js",
@@ -36,7 +36,6 @@
     "rollup": "^4.19.0",
     "rollup-plugin-dts": "^6.1.1",
     "rollup-plugin-swc3": "^0.11.2",
-    "tsx": "^4.16.2",
     "typescript": "^5.5.4",
     "vitest": "^2.0.4"
   },

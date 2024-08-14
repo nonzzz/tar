@@ -77,39 +77,6 @@ export class List<T> {
     }
     return v
   }
-
-  private walker(pos: number, handler: (elts: (T | undefined)[], pos: number, result: T) => void) {
-    if (pos < this.cap) {
-      handler(this.tail.items, pos, this.tail.items[pos]!)
-      return
-    }
-    let elt: Elt<T> | undefined = this.tail
-    let p = pos
-    while (elt) {
-      if (!elt.next && p >= elt.mask) {
-        throw new Error('Index out of range')
-      }
-
-      if (p <= elt.mask) {
-        handler(elt.items, pos, elt.items[p]!)
-        return
-      }
-      if (elt.next) {
-        p -= elt.items.length
-        elt = elt.next
-      }
-    }
-  }
-
-  at(pos: number) {
-    let elt: T | undefined
-    this.walker(pos, (_, __, result) => elt = result)
-    return elt
-  }
-
-  update(pos: number, data: T) {
-    this.walker(pos, (elts, pos) => elts[pos] = data)
-  }
 }
 
 export function createList<T>(cap?: number) {
