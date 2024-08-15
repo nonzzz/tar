@@ -13,3 +13,11 @@ It's an implementation based on the `ustar` format. This package only provides l
 ### Related
 
 - [tar](https://www.gnu.org/software/tar/manual/html_node/Standard.html)
+
+### LICENSE
+
+[MIT](./LICENSE)
+
+### Author
+
+Kanno
