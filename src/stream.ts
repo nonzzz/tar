@@ -92,9 +92,6 @@ export class Pack {
   }
 
   get receiver() {
-    if (!this.finished) {
-      this.done()
-    }
     return this.reader
   }
 }

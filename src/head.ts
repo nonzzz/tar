@@ -23,6 +23,11 @@ export interface Head {
   prefix: uint8 // 155
 }
 
+export interface PaxHead extends Head {
+  atime: uint8
+  linkpath: uint8
+}
+
 export const Mode = {
   TS_UID: 0o4000,
   TS_GID: 0o2000,
@@ -81,6 +86,8 @@ export interface EncodingHeadOptions {
   gname?: string,
   devmajor: number,
   devminor: number,
+  atime?: number,
+  linkpath?: string
 }
 
 export interface DecodingHeadOptions {
@@ -166,6 +173,9 @@ function chksum(b: Uint8Array) {
     return acc + cur
   }, 0)
 }
+
+// https://pubs.opengroup.org/onlinepubs/9699919799/utilities/pax.html#tag_20_92_13_03
+// Encode implements the Basic ustar format. But when the size is over 2^33, it will fallback to the posix pax format.
 
 export function encode(options: EncodingHeadOptions) {
   const block = new Uint8Array(512)
