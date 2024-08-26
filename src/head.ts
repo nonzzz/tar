@@ -99,6 +99,8 @@ export interface EncodingHeadPaxOptions {
   pax?: Record<string, string>
 }
 
+export type EncodingHeadOptionsWithPax = EncodingHeadOptions & Pick<EncodingHeadPaxOptions, 'pax'>
+
 export interface DecodingHeadOptions {
   filenameEncoding?: string
 }
@@ -143,8 +145,9 @@ function encodeOctal(b: number, fixed?: number) {
 // https://www.gnu.org/software/tar/manual/html_node/Extensions.html
 function parse256(b: Uint8Array) {
   const positive = b[0] === Magic.POSITIVE_256 ? true : false
-  return b.reduceRight((acc, cur, i) => {
-    return acc += cur * Math.pow(256, b.length - i - 1)
+  return b.slice(1).reduceRight((acc, cur, i) => {
+    const byte = positive ? cur : Magic.NEGATIVE_256 - cur
+    return acc += byte * Math.pow(256, b.length - i - 2)
   }, 0) * (positive ? 1 : -1)
 }
 
@@ -240,12 +243,18 @@ export function encode(options: EncodingHeadOptions) {
   block.set(encodeString(encodeOctal(options.gid, 6)), 116)
 
   // size
-
-  if (encodeOctal(options.size).length > 11) {
-    throw new Error('Invalid size. Please check \'size\' is less than 8 byte.')
+  // octal max is 7777777...
+  if (options.size.toString(8).length > 11) {
+    let s = options.size
+    const bb = [Magic.POSITIVE_256]
+    for (let i = 11; i > 0; i--) {
+      bb[i] = s & Magic.NEGATIVE_256
+      s = Math.floor(s / 256)
+    }
+    block.set(bb, 124)
+  } else {
+    block.set(encodeString(encodeOctal(options.size, 11)), 124)
   }
-
-  block.set(encodeString(encodeOctal(options.size, 11)), 124)
 
   block.set(encodeString(encodeOctal(options.mtime, 11)), 136)
   block.set(encodeString(options.typeflag), 156)

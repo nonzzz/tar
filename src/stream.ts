@@ -1,12 +1,13 @@
 import { Readable, Writable } from 'stream'
 import type { ReadableOptions, WritableOptions } from 'stream'
 import { F_MODE, TypeFlag, decode, encode } from './head'
-import type { DecodingHeadOptions, EncodingHeadOptions } from './head'
+import type { DecodingHeadOptions, EncodingHeadOptions, EncodingHeadOptionsWithPax } from './head'
 import { List, createList } from './list'
 import { noop } from './shared'
 
 export type PackOptions = Partial<Omit<EncodingHeadOptions, 'name' | 'size' | 'mtime'>> & {
   filename: string
+  pax?: Record<string, string>
 }
 
 function createReadbleStream(options?: ReadableOptions) {
@@ -41,10 +42,17 @@ export class Pack {
     this.finished = false
   }
 
-  private resolveHeadOptions(size: number, options: PackOptions): EncodingHeadOptions {
+  private resolveHeadOptions(size: number, options: PackOptions): EncodingHeadOptionsWithPax {
     const { filename, ...rest } = options
 
-    return { ...defaultPackOptions, ...rest, name: filename, mtime: Math.floor(Date.now() / 1000), size }
+    const merged = { ...defaultPackOptions, ...rest, name: filename, mtime: Math.floor(Date.now() / 1000), size }
+
+    // Fallback to posix the global isn't support for now.
+    if (size.toString(8).length > 11) {
+      merged.typeflag = TypeFlag.XHD_TYPE
+    }
+
+    return merged
   }
 
   add(binary: Uint8Array, options: PackOptions) {
@@ -67,7 +75,7 @@ export class Pack {
     if (padding > 0) this.reader.push(new Uint8Array(padding))
   }
 
-  private transport(binary: Uint8Array, resolvedOptions: EncodingHeadOptions) {
+  private transport(binary: Uint8Array, resolvedOptions: EncodingHeadOptionsWithPax) {
     const writer = createWriteableStream({
       write: (chunk, _, callback) => {
         try {

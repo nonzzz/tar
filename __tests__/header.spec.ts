@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ERROR_MESSAGES, F_MODE, TypeFlag, decodePax, encode, encodePax } from '../src'
+import { ERROR_MESSAGES, F_MODE, TypeFlag, decodePax, decode as decodeTar, encode, encodePax } from '../src'
 import type { EncodingHeadOptions } from '../src'
 
 function randomDir(len: number) {
@@ -140,6 +140,26 @@ describe('Headers', () => {
         expect(block.length).toBe(512)
         expect(decode(block.subarray(0, 100)).replace(/\0+$/, '')).toBe(name)
         expect(decode(block.subarray(345, 345 + 155)).replace(/\0+$/, '')).toBe(prefix)
+      })
+      it('Large File', () => {
+        const size = Math.pow(2, 33)
+        const header = <EncodingHeadOptions>{
+          name: 'nonzzz.tsx',
+          uid: 0,
+          gid: 0,
+          size,
+          mtime,
+          typeflag: TypeFlag.AREG_TYPE,
+          linkname: '',
+          devmajor: 0,
+          devminor: 0,
+          mode: F_MODE,
+          uname: 'nonzzz',
+          gname: 'admin'
+        }
+        const block = encode(header)
+        const { size: decodeSize } = decodeTar(block)
+        expect(decodeSize).toBe(size)
       })
       it('Pax Header', () => {
         const binary = encodePax({ name: 'nonzzz.tsx', linkname: '1', pax: { kanno: 'hello world' } })
