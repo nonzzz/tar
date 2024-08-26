@@ -1,3 +1,4 @@
+/* eslint-disable stylistic/indent */
 /* eslint-disable no-labels */
 // https://www.gnu.org/software/tar/manual/html_node/Standard.html
 // https://www.gnu.org/software/tar/manual/html_node/Portability.html#Portability
@@ -23,6 +24,11 @@ export interface Head {
   prefix: uint8 // 155
 }
 
+export interface PaxHead extends Head {
+  atime: uint8
+  linkpath: uint8
+}
+
 export const Mode = {
   TS_UID: 0o4000,
   TS_GID: 0o2000,
@@ -39,10 +45,10 @@ export const Mode = {
 } as const
 
 export const F_MODE = Mode.TU_READ | Mode.TU_WRITE | Mode.TG_READ | Mode.TO_READ
-  
+
 export const D_MODE = Mode.TU_READ | Mode.TU_WRITE | Mode.TU_EXEC | Mode.TG_READ | Mode.TG_EXEC | Mode.TO_READ |
-    Mode.TO_EXEC
-  
+  Mode.TO_EXEC
+
 export type Mode = typeof Mode[keyof typeof Mode]
 
 export const TypeFlag = {
@@ -54,43 +60,56 @@ export const TypeFlag = {
   BLK_TYPE: '4',
   DIR_TYPE: '5',
   FIFO_TYPE: '6',
-  CONT_TYPE: '7'
+  CONT_TYPE: '7',
+  // For Pax
+  XHD_TYPE: 'x',
+  XGL_TYPE: 'g'
 } as const
-  
+
 export type TypeFlag = typeof TypeFlag[keyof typeof TypeFlag]
 
 export const Magic = {
   T_MAGIC: 'ustar',
   T_VERSION: '00',
   WHITE_SPACE: 32, // ascii code
+  EQ_CHAR: 61, // ascii code
   NULL_CHAR: 0, // ascii code
+  NEW_LINE: 10, // ascii code
   NEGATIVE_256: 0xFF,
   POSITIVE_256: 0x80
 }
 
 export interface EncodingHeadOptions {
   name: string
-  mode: number,
-  uid: number,
-  gid: number,
-  size: number,
-  mtime: number,
-  typeflag: TypeFlag,
-  linkname?: string,
-  uname?: string,
-  gname?: string,
-  devmajor: number,
-  devminor: number,
+  mode: number
+  uid: number
+  gid: number
+  size: number
+  mtime: number
+  typeflag: TypeFlag
+  linkname?: string
+  uname?: string
+  gname?: string
+  devmajor: number
+  devminor: number
 }
+
+export interface EncodingHeadPaxOptions {
+  name: string
+  linkname: string
+  pax?: Record<string, string>
+}
+
+export type EncodingHeadOptionsWithPax = EncodingHeadOptions & Pick<EncodingHeadPaxOptions, 'pax'>
 
 export interface DecodingHeadOptions {
   filenameEncoding?: string
 }
 
 export const ERROR_MESSAGES = {
-  INVALID_ENCODING_NAME: 'Invalid name. Invalid name. Please check \'name\' is a directory type.',
-  INVALID_ENCODING_NAME_LEN: 'Invalid name. Please check \'name\' length is less than 255 byte.',
-  INVALID_ENCODING_LINKNAME: 'Invalid linkname. Please check \'linkname\' length is less than 100 byte.',
+  INVALID_ENCODING_NAME: "Invalid name. Invalid name. Please check 'name' is a directory type.",
+  INVALID_ENCODING_NAME_LEN: "Invalid name. Please check 'name' length is less than 255 byte.",
+  INVALID_ENCODING_LINKNAME: "Invalid linkname. Please check 'linkname' length is less than 100 byte.",
   INVALID_BASE256: 'Invalid base256 format',
   INVALID_OCTAL_FORMAT: 'Invalid octal format',
   NOT_INIT: 'Not init',
@@ -99,7 +118,7 @@ export const ERROR_MESSAGES = {
 
 // For most scens. format ustar is useful, but when we meet the large file, we should fallback to the old gnu format.
 
-const enc =/* @__PURE__ */ new TextEncoder()
+const enc = /* @__PURE__ */ new TextEncoder()
 
 const encodeString = enc.encode.bind(enc)
 
@@ -127,8 +146,9 @@ function encodeOctal(b: number, fixed?: number) {
 // https://www.gnu.org/software/tar/manual/html_node/Extensions.html
 function parse256(b: Uint8Array) {
   const positive = b[0] === Magic.POSITIVE_256 ? true : false
-  return b.reduceRight((acc, cur, i) => {
-    return acc += cur * Math.pow(256, b.length - i - 1)
+  return b.slice(1).reduceRight((acc, cur, i) => {
+    const byte = positive ? cur : Magic.NEGATIVE_256 - cur
+    return acc += byte * Math.pow(256, b.length - i - 2)
   }, 0) * (positive ? 1 : -1)
 }
 
@@ -167,6 +187,23 @@ function chksum(b: Uint8Array) {
   }, 0)
 }
 
+// "%d %s=%s\n", <length>, <keyword>, <value>
+function paxTemplate(keyword: string, value: string) {
+  const template = ' ' + keyword + '=' + value + '\n'
+  const binary = encodeString(template)
+  return (binary.length + String(binary.length).length) + template
+}
+
+// https://pubs.opengroup.org/onlinepubs/9699919799/utilities/pax.html#tag_20_92_13_03
+// Encode implements the Basic ustar format. But when the size is over 2^33, it will fallback to the posix pax format.
+
+// | ustar Header[typeFlag=g]    |
+// | Global Extended Header Data |
+// | ustar Header[typeFlag=x]    |
+// | Extended Header Data        |
+// | ustar Header[typeFlag=0]    |
+// | File Data                   |
+// ...
 export function encode(options: EncodingHeadOptions) {
   const block = new Uint8Array(512)
   let name = options.name
@@ -175,7 +212,7 @@ export function encode(options: EncodingHeadOptions) {
   }
   let prefix = ''
   let invalidate = false
-  loop: 
+  loop:
   while (name.length > 100) {
     const spec = name.indexOf('/')
     switch (spec) {
@@ -193,6 +230,7 @@ export function encode(options: EncodingHeadOptions) {
   if (invalidate) {
     throw new Error(ERROR_MESSAGES.INVALID_ENCODING_NAME)
   }
+
   const binaryName = encodeString(name)
   if (binaryName.length + prefix.length > 255) {
     throw new Error(ERROR_MESSAGES.INVALID_ENCODING_NAME_LEN)
@@ -206,12 +244,18 @@ export function encode(options: EncodingHeadOptions) {
   block.set(encodeString(encodeOctal(options.gid, 6)), 116)
 
   // size
-
-  if (encodeOctal(options.size).length > 11) {
-    throw new Error('Invalid size. Please check \'size\' is less than 8 byte.')
+  // octal max is 7777777...
+  if (options.size.toString(8).length > 11) {
+    let s = options.size
+    const bb = [Magic.POSITIVE_256]
+    for (let i = 11; i > 0; i--) {
+      bb[i] = s & Magic.NEGATIVE_256
+      s = Math.floor(s / 256)
+    }
+    block.set(bb, 124)
+  } else {
+    block.set(encodeString(encodeOctal(options.size, 11)), 124)
   }
-
-  block.set(encodeString(encodeOctal(options.size, 11)), 124)
 
   block.set(encodeString(encodeOctal(options.mtime, 11)), 136)
   block.set(encodeString(options.typeflag), 156)
@@ -242,6 +286,18 @@ export function encode(options: EncodingHeadOptions) {
   return block
 }
 
+export function encodePax(options: EncodingHeadPaxOptions) {
+  let p = ''
+  p += paxTemplate('path', options.name)
+  p += paxTemplate('linkpath', options.linkname)
+  if (options.pax && typeof options.pax === 'object') {
+    for (const key in options.pax) {
+      p += paxTemplate(key, options.pax[key])
+    }
+  }
+  return encodeString(p)
+}
+
 const defaultDecodeOptions = {
   filenameEncoding: 'utf-8'
 }
@@ -256,18 +312,24 @@ export function decode(b: Uint8Array, options?: DecodingHeadOptions) {
   const size = decodeOctal(b, 124, 12)
   const mtime = decodeOctal(b, 136, 12)
   // convert as enum
-  let typeflag = b[156] === 0 ? TypeFlag.AREG_TYPE : (b[156] - 48) + '' as unknown as TypeFlag
+  let typeflag = b[156] === 0
+    ? TypeFlag.AREG_TYPE
+    : b[156] === 120
+    ? TypeFlag.XHD_TYPE
+    : b[156] === 103
+    ? TypeFlag.XGL_TYPE
+    : (b[156] - 48) + '' as unknown as TypeFlag
   const linkname = b[157] === Magic.NULL_CHAR ? null : decodeString(b, 157, 100, filenameEncoding)
   const uname = decodeString(b, 265, 32)
   const gname = decodeString(b, 297, 32)
   const devmajor = decodeOctal(b, 329, 8)
   const devminor = decodeOctal(b, 337, 8)
-  const c = chksum(b) 
+  const c = chksum(b)
   if (c === 256) throw new Error(ERROR_MESSAGES.NOT_INIT)
   if (c !== decodeOctal(b, 148, 8)) {
     throw new Error(ERROR_MESSAGES.INVALID_CHKSUM)
   }
-  // 
+  //
   if (Magic.T_MAGIC === decodeString(b, 257, 6)) {
     if (b[345]) {
       name = decodeString(b, 345, 155, filenameEncoding) + '/' + name
@@ -277,7 +339,7 @@ export function decode(b: Uint8Array, options?: DecodingHeadOptions) {
   if (typeflag === TypeFlag.REG_TYPE && name[name.length - 1] === '/') {
     typeflag = TypeFlag.DIR_TYPE
   }
-  
+
   return {
     name,
     mode,
@@ -291,6 +353,45 @@ export function decode(b: Uint8Array, options?: DecodingHeadOptions) {
     gname,
     devmajor,
     devminor
-  
   }
+}
+
+export function decodePax(b: Uint8Array) {
+  const pax: Record<string, string> = {}
+  const matrix: Array<uint8[]> = []
+  let cap = b.length
+  let line = 0
+  if (!matrix[line]) {
+    matrix[line] = []
+  }
+
+  let start = 0
+  while (cap > 0) {
+    matrix[line].push(b[start])
+    if (b[start] === Magic.NEW_LINE) {
+      if (start + 1 === b.length) break
+      line++
+      matrix[line] = []
+      start++
+      continue
+    }
+    start++
+    cap--
+  }
+
+  for (let i = 0; i < matrix.length; i++) {
+    const item = matrix[i]
+    let pos = 0
+    while (item[pos] !== Magic.WHITE_SPACE && pos < item.length) {
+      pos++
+    }
+    const bb = new Uint8Array(item)
+    const len = parseInt(decodeString(bb, 0, pos)) - 1
+    const content = bb.subarray(pos + 1, len)
+    const eqPos = content.indexOf(Magic.EQ_CHAR)
+    Object.assign(pax, {
+      [decodeString(content, 0, eqPos)]: decodeString(content, eqPos + 1, content.length)
+    })
+  }
+  return pax
 }

@@ -1,5 +1,5 @@
 /* eslint-disable no-use-before-define */
-class Elt <T> {
+class Elt<T> {
   items: Array<T | undefined>
   pos: number
   mask: number
@@ -43,7 +43,7 @@ export class List<T> {
   length: number
   constructor(cap: number = 16) {
     this.cap = cap
-    this.length = 0 
+    this.length = 0
     this.head = new Elt(this.cap)
     this.tail = this.head
   }
@@ -55,7 +55,7 @@ export class List<T> {
       this.head = prev.next
     }
     this.head.push(elt)
-    this.length++ 
+    this.length++
   }
 
   shift() {

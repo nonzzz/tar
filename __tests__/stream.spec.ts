@@ -48,6 +48,8 @@ describe('Stream', () => {
           })
         }
 
+        pack.done()
+
         extract.on('entry', (head, file) => {
           const content = assets[head.name]
           expect(content).toBe(textDecode.decode(file))

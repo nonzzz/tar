@@ -1,12 +1,13 @@
 import { Readable, Writable } from 'stream'
 import type { ReadableOptions, WritableOptions } from 'stream'
-import { F_MODE, TypeFlag, encode } from './head'
-import { DecodingHeadOptions, EncodingHeadOptions, decode } from './head'
+import { F_MODE, TypeFlag, decode, decodePax, encode, encodePax } from './head'
+import type { DecodingHeadOptions, EncodingHeadOptions, EncodingHeadOptionsWithPax } from './head'
 import { List, createList } from './list'
 import { noop } from './shared'
 
 export type PackOptions = Partial<Omit<EncodingHeadOptions, 'name' | 'size' | 'mtime'>> & {
   filename: string
+  pax?: Record<string, string>
 }
 
 function createReadbleStream(options?: ReadableOptions) {
@@ -18,7 +19,7 @@ function createWriteableStream(options?: WritableOptions) {
 }
 
 const PACK_ERROR_MESSAGES = {
-  HAS_DONE: 'Can\'t add new entry after calling done()'
+  HAS_DONE: "Can't add new entry after calling done()"
 }
 
 // New archives should be created using REGTYPE.
@@ -41,7 +42,7 @@ export class Pack {
     this.finished = false
   }
 
-  private resolveHeadOptions(size: number, options: PackOptions): EncodingHeadOptions {
+  private resolveHeadOptions(size: number, options: PackOptions): EncodingHeadOptionsWithPax {
     const { filename, ...rest } = options
 
     return { ...defaultPackOptions, ...rest, name: filename, mtime: Math.floor(Date.now() / 1000), size }
@@ -67,12 +68,24 @@ export class Pack {
     if (padding > 0) this.reader.push(new Uint8Array(padding))
   }
 
-  private transport(binary: Uint8Array, resolvedOptions: EncodingHeadOptions) {
+  private transport(binary: Uint8Array, resolvedOptions: EncodingHeadOptionsWithPax) {
+    const consume = (chunk: Uint8Array) => {
+      if (resolvedOptions.pax) {
+        const paxHead = encodePax({ name: resolvedOptions.name, linkname: resolvedOptions.linkname || '', pax: { ...resolvedOptions.pax } })
+        const head = encode({ ...resolvedOptions, name: 'PaxHeader', typeflag: TypeFlag.XHD_TYPE, size: paxHead.length })
+        this.reader.push(head)
+        this.reader.push(paxHead)
+        this.reader.push(this.fix(paxHead.length))
+        resolvedOptions.name = 'PaxHeader'
+      }
+      this.reader.push(encode(resolvedOptions))
+      this.reader.push(chunk)
+    }
+
     const writer = createWriteableStream({
       write: (chunk, _, callback) => {
         try {
-          this.reader.push(encode(resolvedOptions)) 
-          this.reader.push(chunk)
+          consume(chunk)
           callback()
         } catch (error) {
           callback(error as Error)
@@ -92,9 +105,6 @@ export class Pack {
   }
 
   get receiver() {
-    if (!this.finished) {
-      this.done()
-    }
     return this.reader
   }
 }
@@ -111,7 +121,7 @@ class FastBytes {
   private queue: List<Uint8Array>
   bytesLen: number
   insertedBytesLen: number
- 
+
   constructor() {
     this.queue = createList<Uint8Array>()
     this.bytesLen = 0
@@ -127,7 +137,7 @@ class FastBytes {
   shift(size: number) {
     if (size > this.bytesLen) {
       throw new Error(FAST_BYTES_ERROR_MESSAGES.EXCEED_BYTES_LEN)
-    } 
+    }
     if (size === 0) {
       return new Uint8Array(0)
     }
@@ -158,6 +168,8 @@ export class Extract {
   private flag: boolean
   private elt: Uint8Array | null
   private total: number
+  private isPax: boolean
+  private paxMeta: Record<string, string>
   constructor(options: DecodingHeadOptions) {
     this.decodeOptions = options
     this.matrix = new FastBytes()
@@ -167,6 +179,8 @@ export class Extract {
     this.offset = 0
     this.elt = null
     this.total = 0
+    this.isPax = false
+    this.paxMeta = Object.create(null)
     this.writer = createWriteableStream({
       write: (chunk, _, callback) => {
         this.matrix.push(chunk)
@@ -190,6 +204,18 @@ export class Extract {
     const decodeHead = () => {
       try {
         this.head = decode(this.matrix.shift(512), this.decodeOptions)
+        if (this.head.typeflag === TypeFlag.XHD_TYPE) {
+          this.isPax = true
+          return true
+        }
+        if (Object.keys(this.paxMeta).length > 0) {
+          this.head.name = this.paxMeta.path
+          this.head.linkname = this.paxMeta.linkpath
+          // @ts-expect-error
+          this.head.pax = { ...this.paxMeta }
+          this.paxMeta = Object.create(null)
+        }
+
         this.missing = this.head.size
         this.elt = new Uint8Array(this.head.size)
         this.flag = true
@@ -211,13 +237,25 @@ export class Extract {
         return
       }
       this.elt!.set(this.matrix.shift(this.missing), this.offset)
-
       this.total += this.elt!.length + 512
       this.writer.emit('entry', this.head, this.elt!)
       this.flag = false
     }
 
+    const handlePax = () => {
+      const c = this.matrix.shift(this.head.size)
+      const paxHead = decodePax(c)
+      this.paxMeta = { ...this.paxMeta, ...paxHead }
+      this.total += this.head.size + 512
+      this.isPax = false
+    }
+
     while (this.matrix.bytesLen > 0) {
+      if (this.isPax) {
+        handlePax()
+        continue
+      }
+
       if (this.flag) {
         consume()
         continue
