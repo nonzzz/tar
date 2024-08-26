@@ -19,7 +19,7 @@ function createWriteableStream(options?: WritableOptions) {
 }
 
 const PACK_ERROR_MESSAGES = {
-  HAS_DONE: 'Can\'t add new entry after calling done()'
+  HAS_DONE: "Can't add new entry after calling done()"
 }
 
 // New archives should be created using REGTYPE.
@@ -79,7 +79,7 @@ export class Pack {
     const writer = createWriteableStream({
       write: (chunk, _, callback) => {
         try {
-          this.reader.push(encode(resolvedOptions)) 
+          this.reader.push(encode(resolvedOptions))
           this.reader.push(chunk)
           callback()
         } catch (error) {
@@ -116,7 +116,7 @@ class FastBytes {
   private queue: List<Uint8Array>
   bytesLen: number
   insertedBytesLen: number
- 
+
   constructor() {
     this.queue = createList<Uint8Array>()
     this.bytesLen = 0
@@ -132,7 +132,7 @@ class FastBytes {
   shift(size: number) {
     if (size > this.bytesLen) {
       throw new Error(FAST_BYTES_ERROR_MESSAGES.EXCEED_BYTES_LEN)
-    } 
+    }
     if (size === 0) {
       return new Uint8Array(0)
     }

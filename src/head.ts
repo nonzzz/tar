@@ -44,10 +44,10 @@ export const Mode = {
 } as const
 
 export const F_MODE = Mode.TU_READ | Mode.TU_WRITE | Mode.TG_READ | Mode.TO_READ
-  
+
 export const D_MODE = Mode.TU_READ | Mode.TU_WRITE | Mode.TU_EXEC | Mode.TG_READ | Mode.TG_EXEC | Mode.TO_READ |
-    Mode.TO_EXEC
-  
+  Mode.TO_EXEC
+
 export type Mode = typeof Mode[keyof typeof Mode]
 
 export const TypeFlag = {
@@ -80,17 +80,17 @@ export const Magic = {
 
 export interface EncodingHeadOptions {
   name: string
-  mode: number,
-  uid: number,
-  gid: number,
-  size: number,
-  mtime: number,
-  typeflag: TypeFlag,
-  linkname?: string,
-  uname?: string,
-  gname?: string,
-  devmajor: number,
-  devminor: number,
+  mode: number
+  uid: number
+  gid: number
+  size: number
+  mtime: number
+  typeflag: TypeFlag
+  linkname?: string
+  uname?: string
+  gname?: string
+  devmajor: number
+  devminor: number
 }
 
 export interface EncodingHeadPaxOptions {
@@ -106,9 +106,9 @@ export interface DecodingHeadOptions {
 }
 
 export const ERROR_MESSAGES = {
-  INVALID_ENCODING_NAME: 'Invalid name. Invalid name. Please check \'name\' is a directory type.',
-  INVALID_ENCODING_NAME_LEN: 'Invalid name. Please check \'name\' length is less than 255 byte.',
-  INVALID_ENCODING_LINKNAME: 'Invalid linkname. Please check \'linkname\' length is less than 100 byte.',
+  INVALID_ENCODING_NAME: "Invalid name. Invalid name. Please check 'name' is a directory type.",
+  INVALID_ENCODING_NAME_LEN: "Invalid name. Please check 'name' length is less than 255 byte.",
+  INVALID_ENCODING_LINKNAME: "Invalid linkname. Please check 'linkname' length is less than 100 byte.",
   INVALID_BASE256: 'Invalid base256 format',
   INVALID_OCTAL_FORMAT: 'Invalid octal format',
   NOT_INIT: 'Not init',
@@ -117,7 +117,7 @@ export const ERROR_MESSAGES = {
 
 // For most scens. format ustar is useful, but when we meet the large file, we should fallback to the old gnu format.
 
-const enc =/* @__PURE__ */ new TextEncoder()
+const enc = /* @__PURE__ */ new TextEncoder()
 
 const encodeString = enc.encode.bind(enc)
 
@@ -200,7 +200,7 @@ function paxTemplate(keyword: string, value: string) {
 // | Global Extended Header Data |
 // | ustar Header[typeFlag=x]    |
 // | Extended Header Data        |
-// | ustar Header[typeFlag=0]    | 
+// | ustar Header[typeFlag=0]    |
 // | File Data                   |
 // ...
 export function encode(options: EncodingHeadOptions) {
@@ -211,7 +211,7 @@ export function encode(options: EncodingHeadOptions) {
   }
   let prefix = ''
   let invalidate = false
-  loop: 
+  loop:
   while (name.length > 100) {
     const spec = name.indexOf('/')
     switch (spec) {
@@ -317,12 +317,12 @@ export function decode(b: Uint8Array, options?: DecodingHeadOptions) {
   const gname = decodeString(b, 297, 32)
   const devmajor = decodeOctal(b, 329, 8)
   const devminor = decodeOctal(b, 337, 8)
-  const c = chksum(b) 
+  const c = chksum(b)
   if (c === 256) throw new Error(ERROR_MESSAGES.NOT_INIT)
   if (c !== decodeOctal(b, 148, 8)) {
     throw new Error(ERROR_MESSAGES.INVALID_CHKSUM)
   }
-  // 
+  //
   if (Magic.T_MAGIC === decodeString(b, 257, 6)) {
     if (b[345]) {
       name = decodeString(b, 345, 155, filenameEncoding) + '/' + name
@@ -332,7 +332,7 @@ export function decode(b: Uint8Array, options?: DecodingHeadOptions) {
   if (typeflag === TypeFlag.REG_TYPE && name[name.length - 1] === '/') {
     typeflag = TypeFlag.DIR_TYPE
   }
-  
+
   return {
     name,
     mode,
@@ -346,7 +346,6 @@ export function decode(b: Uint8Array, options?: DecodingHeadOptions) {
     gname,
     devmajor,
     devminor
-  
   }
 }
 

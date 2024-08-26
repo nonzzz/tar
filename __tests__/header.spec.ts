@@ -57,7 +57,7 @@ describe('Headers', () => {
       const decode = decoder.decode.bind(decoder)
       const mtime = Math.floor(Date.now() / 1000)
       it('Normal', () => {
-        const header = <EncodingHeadOptions>{
+        const header = <EncodingHeadOptions> {
           name: 'foo.tsx',
           uid: 0,
           gid: 0,
@@ -70,9 +70,8 @@ describe('Headers', () => {
           mode: F_MODE,
           uname: 'nonzzz',
           gname: 'admin'
-  
-        } 
-  
+        }
+
         const block = encode(header)
         expect(block.length).toBe(512)
         expect(decode(block.subarray(0, 100)).replace(/\0+$/, '')).toBe('foo.tsx')
@@ -80,7 +79,7 @@ describe('Headers', () => {
         expect(decode(block.subarray(297, 297 + 32)).replace(/\0+$/, '')).toBe('admin')
       })
       it('Directory', () => {
-        const header = <EncodingHeadOptions>{
+        const header = <EncodingHeadOptions> {
           name: 'nao',
           uid: 0,
           gid: 0,
@@ -101,7 +100,7 @@ describe('Headers', () => {
       })
       it('Long Name File But Not Direcotry', () => {
         const filename = 'a'.repeat(98) + '.tsx'
-        const header = <EncodingHeadOptions>{
+        const header = <EncodingHeadOptions> {
           name: filename,
           uid: 0,
           gid: 0,
@@ -121,7 +120,7 @@ describe('Headers', () => {
         const dir = randomDir(100)
         const filename = 'nonzzz.tsx'
         const { prefix, name } = getPrefixAndName(dir + filename)
-        const header = <EncodingHeadOptions>{
+        const header = <EncodingHeadOptions> {
           name: dir + filename,
           uid: 0,
           gid: 0,
@@ -135,7 +134,7 @@ describe('Headers', () => {
           uname: 'nonzzz',
           gname: 'admin'
         }
-       
+
         const block = encode(header)
         expect(block.length).toBe(512)
         expect(decode(block.subarray(0, 100)).replace(/\0+$/, '')).toBe(name)
@@ -143,7 +142,7 @@ describe('Headers', () => {
       })
       it('Large File', () => {
         const size = Math.pow(2, 33)
-        const header = <EncodingHeadOptions>{
+        const header = <EncodingHeadOptions> {
           name: 'nonzzz.tsx',
           uid: 0,
           gid: 0,
