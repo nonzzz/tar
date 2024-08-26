@@ -59,16 +59,21 @@ export const TypeFlag = {
   BLK_TYPE: '4',
   DIR_TYPE: '5',
   FIFO_TYPE: '6',
-  CONT_TYPE: '7'
+  CONT_TYPE: '7',
+  // For Pax
+  XHD_TYPE: 'x',
+  XGL_TYPE: 'g'
 } as const
-  
+
 export type TypeFlag = typeof TypeFlag[keyof typeof TypeFlag]
 
 export const Magic = {
   T_MAGIC: 'ustar',
   T_VERSION: '00',
   WHITE_SPACE: 32, // ascii code
+  EQ_CHAR: 61, // ascii code
   NULL_CHAR: 0, // ascii code
+  NEW_LINE: 10, // ascii code
   NEGATIVE_256: 0xFF,
   POSITIVE_256: 0x80
 }
@@ -86,8 +91,12 @@ export interface EncodingHeadOptions {
   gname?: string,
   devmajor: number,
   devminor: number,
-  atime?: number,
-  linkpath?: string
+}
+
+export interface EncodingHeadPaxOptions {
+  name: string
+  linkname: string
+  pax?: Record<string, string>
 }
 
 export interface DecodingHeadOptions {
@@ -174,9 +183,23 @@ function chksum(b: Uint8Array) {
   }, 0)
 }
 
+// "%d %s=%s\n", <length>, <keyword>, <value>
+function paxTemplate(keyword: string, value: string) {
+  const template = ' ' + keyword + '=' + value + '\n'
+  const binary = encodeString(template)
+  return (binary.length + String(binary.length).length) + template
+}
+
 // https://pubs.opengroup.org/onlinepubs/9699919799/utilities/pax.html#tag_20_92_13_03
 // Encode implements the Basic ustar format. But when the size is over 2^33, it will fallback to the posix pax format.
 
+// | ustar Header[typeFlag=g]    |
+// | Global Extended Header Data |
+// | ustar Header[typeFlag=x]    |
+// | Extended Header Data        |
+// | ustar Header[typeFlag=0]    | 
+// | File Data                   |
+// ...
 export function encode(options: EncodingHeadOptions) {
   const block = new Uint8Array(512)
   let name = options.name
@@ -203,6 +226,7 @@ export function encode(options: EncodingHeadOptions) {
   if (invalidate) {
     throw new Error(ERROR_MESSAGES.INVALID_ENCODING_NAME)
   }
+
   const binaryName = encodeString(name)
   if (binaryName.length + prefix.length > 255) {
     throw new Error(ERROR_MESSAGES.INVALID_ENCODING_NAME_LEN)
@@ -250,6 +274,18 @@ export function encode(options: EncodingHeadOptions) {
   block.set(encodeString(encodeOctal(chksum(block), 6)), 148)
 
   return block
+}
+
+export function encodePax(options: EncodingHeadPaxOptions) {
+  let p = ''
+  p += paxTemplate('path', options.name)
+  p += paxTemplate('linkpath', options.linkname)
+  if (options.pax && typeof options.pax === 'object') {
+    for (const key in options.pax) {
+      p += paxTemplate(key, options.pax[key])
+    }
+  }
+  return encodeString(p)
 }
 
 const defaultDecodeOptions = {
@@ -303,4 +339,44 @@ export function decode(b: Uint8Array, options?: DecodingHeadOptions) {
     devminor
   
   }
+}
+
+export function decodePax(b: Uint8Array) {
+  const pax: Record<string, string> = {}
+  const matrix: Array<uint8[]> = []
+  let cap = b.length
+  let line = 0
+  if (!matrix[line]) {
+    matrix[line] = []
+  }
+
+  let start = 0
+  while (cap > 0) {
+    matrix[line].push(b[start])
+    if (b[start] === Magic.NEW_LINE) {
+      if (start + 1 === b.length) break
+      line++
+      matrix[line] = []
+      start++
+      continue
+    }
+    start++
+    cap--
+  }
+
+  for (let i = 0; i < matrix.length; i++) {
+    const item = matrix[i]
+    let pos = 0
+    while (item[pos] !== Magic.WHITE_SPACE && pos < item.length) {
+      pos++
+    }
+    const bb = new Uint8Array(item)
+    const len = parseInt(decodeString(bb, 0, pos)) - 1
+    const content = bb.subarray(pos + 1, len)
+    const eqPos = content.indexOf(Magic.EQ_CHAR)
+    Object.assign(pax, {
+      [decodeString(content, 0, eqPos)]: decodeString(content, eqPos + 1, content.length)
+    })
+  }
+  return pax
 }

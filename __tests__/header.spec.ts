@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ERROR_MESSAGES, F_MODE, TypeFlag, encode } from '../src'
+import { ERROR_MESSAGES, F_MODE, TypeFlag, decodePax, encode, encodePax } from '../src'
 import type { EncodingHeadOptions } from '../src'
 
 function randomDir(len: number) {
@@ -140,6 +140,13 @@ describe('Headers', () => {
         expect(block.length).toBe(512)
         expect(decode(block.subarray(0, 100)).replace(/\0+$/, '')).toBe(name)
         expect(decode(block.subarray(345, 345 + 155)).replace(/\0+$/, '')).toBe(prefix)
+      })
+      it('Pax Header', () => {
+        const binary = encodePax({ name: 'nonzzz.tsx', linkname: '1', pax: { kanno: 'hello world' } })
+        const pax = decodePax(binary)
+        expect(pax.path).toBe('nonzzz.tsx')
+        expect(pax.kanno).toBe('hello world')
+        expect(pax.linkpath).toBe('1')
       })
     })
   })

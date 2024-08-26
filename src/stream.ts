@@ -1,7 +1,7 @@
 import { Readable, Writable } from 'stream'
 import type { ReadableOptions, WritableOptions } from 'stream'
-import { F_MODE, TypeFlag, encode } from './head'
-import { DecodingHeadOptions, EncodingHeadOptions, decode } from './head'
+import { F_MODE, TypeFlag, decode, encode } from './head'
+import type { DecodingHeadOptions, EncodingHeadOptions } from './head'
 import { List, createList } from './list'
 import { noop } from './shared'
 
