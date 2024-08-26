@@ -1,3 +1,4 @@
+/* eslint-disable stylistic/indent */
 /* eslint-disable no-labels */
 // https://www.gnu.org/software/tar/manual/html_node/Standard.html
 // https://www.gnu.org/software/tar/manual/html_node/Portability.html#Portability
@@ -311,7 +312,13 @@ export function decode(b: Uint8Array, options?: DecodingHeadOptions) {
   const size = decodeOctal(b, 124, 12)
   const mtime = decodeOctal(b, 136, 12)
   // convert as enum
-  let typeflag = b[156] === 0 ? TypeFlag.AREG_TYPE : (b[156] - 48) + '' as unknown as TypeFlag
+  let typeflag = b[156] === 0
+    ? TypeFlag.AREG_TYPE
+    : b[156] === 120
+    ? TypeFlag.XHD_TYPE
+    : b[156] === 103
+    ? TypeFlag.XGL_TYPE
+    : (b[156] - 48) + '' as unknown as TypeFlag
   const linkname = b[157] === Magic.NULL_CHAR ? null : decodeString(b, 157, 100, filenameEncoding)
   const uname = decodeString(b, 265, 32)
   const gname = decodeString(b, 297, 32)
