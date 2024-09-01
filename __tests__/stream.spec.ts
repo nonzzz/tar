@@ -1,6 +1,32 @@
 import { Writable } from 'stream'
+import fs from 'fs'
+import fsp from 'fs/promises'
+import path from 'path'
+import { x } from 'tinyexec'
+
 import { describe, expect, it } from 'vitest'
-import { createExtract, createPack } from '../src'
+import { TypeFlag, createExtract, createPack } from '../src'
+
+const fixturesPath = path.join(__dirname, 'fixtures')
+
+async function readAll(entry: string) {
+  const paths = await Promise.all((await fsp.readdir(entry)).map((dir) => path.join(entry, dir)))
+  let pos = 0
+  const result: string[] = []
+  while (pos !== paths.length) {
+    const dir = paths[pos]
+    const stat = await fsp.stat(dir)
+    if (stat.isDirectory()) {
+      const dirs = await fsp.readdir(dir)
+      paths.push(...dirs.map((sub) => path.join(dir, sub)))
+    }
+    if (stat.isFile()) {
+      result.push(dir)
+    }
+    pos++
+  }
+  return result
+}
 
 describe('Stream', () => {
   describe('Uniform Standard Type Archive', () => {
@@ -56,6 +82,27 @@ describe('Stream', () => {
           expect(head.size).toBe(content.length)
         })
         pack.receiver.pipe(extract.receiver)
+      })
+
+      it('@LongLink GNU tar', async () => {
+        const nodeTar = path.join(fixturesPath, 'node-v22.7.0.tar')
+        const targetPath = path.join(__dirname, 'tpl')
+        const output = path.join(targetPath, 'node-v22.7.0')
+        fs.mkdirSync(targetPath, { recursive: true })
+        await x('tar', [`-xf${nodeTar}`, `-C${targetPath}`])
+        const files = await readAll(output)
+        const extract = createExtract()
+        let c = 0
+        extract.on('entry', (head) => {
+          if (head.typeflag === TypeFlag.REG_TYPE) {
+            c += 1
+          }
+        })
+        const reader = fs.createReadStream(nodeTar)
+        reader.pipe(extract.receiver)
+        await new Promise((resolve) => extract.on('close', resolve))
+        await fsp.rm(targetPath, { recursive: true })
+        expect(c).toBe(files.length)
       })
     })
   })

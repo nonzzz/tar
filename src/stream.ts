@@ -1,7 +1,7 @@
 import { Readable, Writable } from 'stream'
 import type { ReadableOptions, WritableOptions } from 'stream'
-import { F_MODE, TypeFlag, decode, decodePax, encode, encodePax } from './head'
-import type { DecodingHeadOptions, EncodingHeadOptions, EncodingHeadOptionsWithPax } from './head'
+import { F_MODE, GnuTypeFlag, Magic, STANDARD_TYPE_FLAG_SET, TypeFlag, decode, decodePax, decodeString, encode, encodePax } from './head'
+import type { DecodingHeadOptions, EncodingHeadOptions, EncodingHeadOptionsWithPax, UnionTypeFlag } from './head'
 import { List, createList } from './list'
 import { noop } from './shared'
 
@@ -156,6 +156,21 @@ class FastBytes {
     this.bytesLen -= size
     return b
   }
+
+  peek(size: number) {
+    if (size > this.bytesLen) {
+      throw new Error(FAST_BYTES_ERROR_MESSAGES.EXCEED_BYTES_LEN)
+    }
+    const elt = this.queue.peek()
+    if (!elt) {
+      throw new Error(FAST_BYTES_ERROR_MESSAGES.EXCEED_BYTES_LEN)
+    }
+    return elt.subarray(0, size)
+  }
+}
+
+function ensureIsStandardUSTARFormat(typeflag: UnionTypeFlag) {
+  return STANDARD_TYPE_FLAG_SET.has(typeflag)
 }
 
 export class Extract {
@@ -168,8 +183,9 @@ export class Extract {
   private flag: boolean
   private elt: Uint8Array | null
   private total: number
-  private isPax: boolean
+  private isNonUSTAR: boolean
   private paxMeta: Record<string, string>
+  private gnuMeta: Record<string, string>
   constructor(options: DecodingHeadOptions) {
     this.decodeOptions = options
     this.matrix = new FastBytes()
@@ -179,8 +195,9 @@ export class Extract {
     this.offset = 0
     this.elt = null
     this.total = 0
-    this.isPax = false
+    this.isNonUSTAR = false
     this.paxMeta = Object.create(null)
+    this.gnuMeta = Object.create(null)
     this.writer = createWriteableStream({
       write: (chunk, _, callback) => {
         this.matrix.push(chunk)
@@ -204,10 +221,21 @@ export class Extract {
     const decodeHead = () => {
       try {
         this.head = decode(this.matrix.shift(512), this.decodeOptions)
-        if (this.head.typeflag === TypeFlag.XHD_TYPE) {
-          this.isPax = true
+        if (!ensureIsStandardUSTARFormat(this.head.typeflag)) {
+          this.isNonUSTAR = true
           return true
         }
+
+        if (Object.keys(this.gnuMeta).length > 0) {
+          for (const key in this.gnuMeta) {
+            if (this.gnuMeta[key]) {
+              // @ts-expect-error
+              this.head[key] = this.gnuMeta[key]
+            }
+          }
+          this.gnuMeta = Object.create(null)
+        }
+
         if (Object.keys(this.paxMeta).length > 0) {
           this.head.name = this.paxMeta.path
           this.head.linkname = this.paxMeta.linkpath
@@ -247,12 +275,38 @@ export class Extract {
       const paxHead = decodePax(c)
       this.paxMeta = { ...this.paxMeta, ...paxHead }
       this.total += this.head.size + 512
-      this.isPax = false
+    }
+
+    const handleLongPath = () => {
+      const c = this.matrix.shift(this.head.size)
+      const filename = decodeString(c, 0, c.length, this.decodeOptions.filenameEncoding)
+      if (this.head.typeflag === GnuTypeFlag.GNUTYPE_LONGNAME) {
+        this.gnuMeta = { name: filename }
+      } else {
+        this.gnuMeta = { linkname: filename }
+      }
+      this.total += this.head.size + 512
+    }
+
+    const handleNonUSTARFormat = () => {
+      switch (this.head.typeflag) {
+        case TypeFlag.XHD_TYPE:
+          handlePax()
+          break
+        case GnuTypeFlag.GNUTYPE_LONGLINK:
+        case GnuTypeFlag.GNUTYPE_LONGNAME:
+          handleLongPath()
+          break
+        default:
+          noop()
+          break
+      }
+      this.isNonUSTAR = false
     }
 
     while (this.matrix.bytesLen > 0) {
-      if (this.isPax) {
-        handlePax()
+      if (this.isNonUSTAR) {
+        handleNonUSTARFormat()
         continue
       }
 
@@ -267,10 +321,14 @@ export class Extract {
         this.head = Object.create(null)
         continue
       }
-      if (this.total + 1024 === this.matrix.insertedBytesLen) {
-        this.matrix.shift(1024)
-        return
+
+      const c = this.matrix.peek(512)
+
+      if (c[0] === Magic.NULL_CHAR && c[511] === Magic.NULL_CHAR) {
+        this.matrix.shift(512)
+        continue
       }
+
       if (!decodeHead()) return
     }
   }

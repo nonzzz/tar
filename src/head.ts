@@ -1,4 +1,3 @@
-/* eslint-disable stylistic/indent */
 /* eslint-disable no-labels */
 // https://www.gnu.org/software/tar/manual/html_node/Standard.html
 // https://www.gnu.org/software/tar/manual/html_node/Portability.html#Portability
@@ -51,6 +50,18 @@ export const D_MODE = Mode.TU_READ | Mode.TU_WRITE | Mode.TU_EXEC | Mode.TG_READ
 
 export type Mode = typeof Mode[keyof typeof Mode]
 
+// ././@LongLink GNU tar magic
+
+export const GnuTypeFlag = {
+  GNUTYPE_DUMPDIR: 'D',
+  GNUTYPE_LONGLINK: 'K',
+  GNUTYPE_LONGNAME: 'L',
+  GNUTYPE_MULTIVOL: 'M',
+  GNUTYPE_SPARSE: 'S',
+  GNUTYPE_VOLHDR: 'V',
+  SOLARIS_XHDTYPE: 'X'
+} as const
+
 export const TypeFlag = {
   REG_TYPE: '0',
   AREG_TYPE: '\0',
@@ -66,7 +77,22 @@ export const TypeFlag = {
   XGL_TYPE: 'g'
 } as const
 
+export const STANDARD_TYPE_FLAG_SET = new Set<string>([
+  TypeFlag.REG_TYPE,
+  TypeFlag.LINK_TYPE,
+  TypeFlag.SYM_TYPE,
+  TypeFlag.CHR_TYPE,
+  TypeFlag.BLK_TYPE,
+  TypeFlag.DIR_TYPE,
+  TypeFlag.FIFO_TYPE,
+  TypeFlag.CONT_TYPE
+])
+
 export type TypeFlag = typeof TypeFlag[keyof typeof TypeFlag]
+
+export type GnuTypeFlag = typeof GnuTypeFlag[keyof typeof GnuTypeFlag]
+
+export type UnionTypeFlag = TypeFlag | GnuTypeFlag
 
 export const Magic = {
   T_MAGIC: 'ustar',
@@ -76,7 +102,8 @@ export const Magic = {
   NULL_CHAR: 0, // ascii code
   NEW_LINE: 10, // ascii code
   NEGATIVE_256: 0xFF,
-  POSITIVE_256: 0x80
+  POSITIVE_256: 0x80,
+  GNU_LONG_NAME: '././@LongLink'
 }
 
 export interface EncodingHeadOptions {
@@ -122,7 +149,7 @@ const enc = /* @__PURE__ */ new TextEncoder()
 
 const encodeString = enc.encode.bind(enc)
 
-function decodeString(b: Uint8Array, offset: number, length: number, encoding = 'utf-8') {
+export function decodeString(b: Uint8Array, offset: number, length: number, encoding = 'utf-8') {
   // filter null character
   while (b[offset + length - 1] === Magic.NULL_CHAR) {
     length--
@@ -165,7 +192,7 @@ function decodeOctal(b: Uint8Array, offset: number, length: number) {
   // [48...48, 32, 0] // len = 8
   let pos = 0
   for (;;) {
-    if (range[pos] === Magic.WHITE_SPACE) {
+    if (range[pos] === Magic.WHITE_SPACE || range[pos] === Magic.NULL_CHAR) {
       break
     }
     if (pos >= length) {
@@ -302,6 +329,23 @@ const defaultDecodeOptions = {
   filenameEncoding: 'utf-8'
 }
 
+function prettyTypeFlag(b: uint8): UnionTypeFlag {
+  switch (b) {
+    case 0:
+      return TypeFlag.REG_TYPE
+    case 120:
+      return TypeFlag.XHD_TYPE
+    case 103:
+      return TypeFlag.XGL_TYPE
+    case 75:
+      return GnuTypeFlag.GNUTYPE_LONGLINK
+    case 76:
+      return GnuTypeFlag.GNUTYPE_LONGNAME
+    default:
+      return (b - 48) + '' as unknown as TypeFlag
+  }
+}
+
 export function decode(b: Uint8Array, options?: DecodingHeadOptions) {
   const opts = options = { ...defaultDecodeOptions, ...options }
   const { filenameEncoding } = opts
@@ -311,14 +355,7 @@ export function decode(b: Uint8Array, options?: DecodingHeadOptions) {
   const gid = decodeOctal(b, 116, 8)
   const size = decodeOctal(b, 124, 12)
   const mtime = decodeOctal(b, 136, 12)
-  // convert as enum
-  let typeflag = b[156] === 0
-    ? TypeFlag.AREG_TYPE
-    : b[156] === 120
-    ? TypeFlag.XHD_TYPE
-    : b[156] === 103
-    ? TypeFlag.XGL_TYPE
-    : (b[156] - 48) + '' as unknown as TypeFlag
+  let typeflag = prettyTypeFlag(b[156])
   const linkname = b[157] === Magic.NULL_CHAR ? null : decodeString(b, 157, 100, filenameEncoding)
   const uname = decodeString(b, 265, 32)
   const gname = decodeString(b, 297, 32)
@@ -329,14 +366,13 @@ export function decode(b: Uint8Array, options?: DecodingHeadOptions) {
   if (c !== decodeOctal(b, 148, 8)) {
     throw new Error(ERROR_MESSAGES.INVALID_CHKSUM)
   }
-  //
   if (Magic.T_MAGIC === decodeString(b, 257, 6)) {
     if (b[345]) {
       name = decodeString(b, 345, 155, filenameEncoding) + '/' + name
     }
   }
 
-  if (typeflag === TypeFlag.REG_TYPE && name[name.length - 1] === '/') {
+  if (typeflag === TypeFlag.REG_TYPE && name[name.length - 1] === '/' && size === 0) {
     typeflag = TypeFlag.DIR_TYPE
   }
 
