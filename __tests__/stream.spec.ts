@@ -2,6 +2,7 @@ import { Writable } from 'stream'
 import fs from 'fs'
 import fsp from 'fs/promises'
 import path from 'path'
+import zlib from 'zlib'
 import { x } from 'tinyexec'
 
 import { describe, expect, it } from 'vitest'
@@ -85,7 +86,7 @@ describe('Stream', () => {
       })
 
       it('@LongLink GNU tar', async () => {
-        const nodeTar = path.join(fixturesPath, 'node-v22.7.0.tar')
+        const nodeTar = path.join(fixturesPath, 'node-v22.7.0.tar.gz')
         const targetPath = path.join(__dirname, 'tpl')
         const output = path.join(targetPath, 'node-v22.7.0')
         fs.mkdirSync(targetPath, { recursive: true })
@@ -98,8 +99,20 @@ describe('Stream', () => {
             c += 1
           }
         })
-        const reader = fs.createReadStream(nodeTar)
-        reader.pipe(extract.receiver)
+
+        extract.on('error', (e) => console.log(e))
+
+        const p = await new Promise((resolve) => {
+          const reader = fs.createReadStream(nodeTar)
+          const binary: Buffer[] = []
+          reader.pipe(zlib.createUnzip()).on('data', (c) => binary.push(c)).on('end', () => {
+            const buffer = Buffer.concat(binary)
+            resolve(buffer)
+          })
+        })
+        extract.receiver.write(p)
+        extract.receiver.end()
+
         await new Promise((resolve) => extract.on('close', resolve))
         await fsp.rm(targetPath, { recursive: true })
         expect(c).toBe(files.length)

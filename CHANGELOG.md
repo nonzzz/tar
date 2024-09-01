@@ -1,3 +1,9 @@
+# 0.1.2
+
+## Patches
+
+- Fix GNU format can't handle `@LongLink GNU` and etc.
+
 # 0.1.1
 
 ## Patches
