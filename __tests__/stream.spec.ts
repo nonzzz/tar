@@ -90,7 +90,7 @@ describe('Stream', () => {
         const targetPath = path.join(__dirname, 'tpl')
         const output = path.join(targetPath, 'node-v22.7.0')
         fs.mkdirSync(targetPath, { recursive: true })
-        await x('tar', [`-xf${nodeTar}`, `-C${targetPath}`])
+        await x('tar', [`-xzf${nodeTar}`, `-C${targetPath}`])
         const files = await readAll(output)
         const extract = createExtract()
         let c = 0
@@ -99,8 +99,6 @@ describe('Stream', () => {
             c += 1
           }
         })
-
-        extract.on('error', (e) => console.log(e))
 
         const p = await new Promise((resolve) => {
           const reader = fs.createReadStream(nodeTar)
@@ -112,6 +110,28 @@ describe('Stream', () => {
         })
         extract.receiver.write(p)
         extract.receiver.end()
+
+        await new Promise((resolve) => extract.on('close', resolve))
+        await fsp.rm(targetPath, { recursive: true })
+        expect(c).toBe(files.length)
+      })
+      it('@LongLink GNU tar2', async () => {
+        const nodeTar = path.join(fixturesPath, 'node-v22.7.0.tar.gz')
+        const targetPath = path.join(__dirname, 'tpl')
+        const output = path.join(targetPath, 'node-v22.7.0')
+        fs.mkdirSync(targetPath, { recursive: true })
+        await x('tar', [`-xzf${nodeTar}`, `-C${targetPath}`])
+        const files = await readAll(output)
+        const extract = createExtract()
+        let c = 0
+        extract.on('entry', (head) => {
+          if (head.typeflag === TypeFlag.REG_TYPE) {
+            c += 1
+          }
+        })
+
+        const reader = fs.createReadStream(nodeTar)
+        reader.pipe(zlib.createUnzip()).pipe(extract.receiver)
 
         await new Promise((resolve) => extract.on('close', resolve))
         await fsp.rm(targetPath, { recursive: true })

@@ -59,13 +59,11 @@ importers:
         specifier: ^2.0.4
         version: 2.0.4(@types/node@20.14.11)
 
-  packages/core: {}
-
-  packages/stream:
-    dependencies:
-      '@tar/core':
+  example:
+    devDependencies:
+      tar-mini:
         specifier: workspace:*
-        version: link:../core
+        version: link:..
 
 packages:
 

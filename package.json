@@ -1,6 +1,6 @@
 {
   "name": "tar-mini",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "It's an implementation based on the `ustar` format",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

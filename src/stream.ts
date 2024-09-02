@@ -162,9 +162,11 @@ class FastBytes {
       throw new Error(FAST_BYTES_ERROR_MESSAGES.EXCEED_BYTES_LEN)
     }
     const elt = this.queue.peek()
+
     if (!elt) {
       throw new Error(FAST_BYTES_ERROR_MESSAGES.EXCEED_BYTES_LEN)
     }
+
     return elt.subarray(0, size)
   }
 }
@@ -186,6 +188,7 @@ export class Extract {
   private isNonUSTAR: boolean
   private paxMeta: Record<string, string>
   private gnuMeta: Record<string, string>
+  private pause: boolean
   constructor(options: DecodingHeadOptions) {
     this.decodeOptions = options
     this.matrix = new FastBytes()
@@ -198,9 +201,19 @@ export class Extract {
     this.isNonUSTAR = false
     this.paxMeta = Object.create(null)
     this.gnuMeta = Object.create(null)
+    this.pause = false
     this.writer = createWriteableStream({
       write: (chunk, _, callback) => {
-        this.matrix.push(chunk)
+        if (this.pause) {
+          const bb = this.matrix.shift(this.matrix.bytesLen)
+          const next = new Uint8Array(bb.length + chunk.length)
+          next.set(bb)
+          next.set(chunk, bb.length)
+          this.matrix.push(next)
+          this.pause = false
+        } else {
+          this.matrix.push(chunk)
+        }
         this.transport()
         callback()
       }
@@ -221,6 +234,7 @@ export class Extract {
     const decodeHead = () => {
       try {
         this.head = decode(this.matrix.shift(512), this.decodeOptions)
+
         if (!ensureIsStandardUSTARFormat(this.head.typeflag)) {
           this.isNonUSTAR = true
           return true
@@ -322,11 +336,16 @@ export class Extract {
         continue
       }
 
-      const c = this.matrix.peek(512)
-
-      if (c[0] === Magic.NULL_CHAR && c[511] === Magic.NULL_CHAR) {
-        this.matrix.shift(512)
-        continue
+      try {
+        const c = this.matrix.peek(512)
+        if (c[0] === Magic.NULL_CHAR && c[511] === Magic.NULL_CHAR) {
+          this.matrix.shift(512)
+          continue
+        }
+      } catch (_) {
+        // In some case the last chunk of the file is not enough to fill the 512 bytes
+        this.pause = true
+        return
       }
 
       if (!decodeHead()) return

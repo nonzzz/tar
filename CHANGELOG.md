@@ -1,3 +1,9 @@
+# 0.1.3
+
+## Patches
+
+- Fix incorrect split chunk when process large files.
+
 # 0.1.2
 
 ## Patches
