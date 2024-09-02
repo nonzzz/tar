@@ -1,4 +1,4 @@
-import { Writable } from 'stream'
+import { Readable, Writable } from 'stream'
 import fs from 'fs'
 import fsp from 'fs/promises'
 import path from 'path'
@@ -137,6 +137,23 @@ describe('Stream', () => {
         await fsp.rm(targetPath, { recursive: true })
         expect(c).toBe(files.length)
       })
+      it('From browser stream', async () => {
+        const sourcePath = 'https://nodejs.org/dist/v22.7.0/node-v22.7.0-darwin-x64.tar.gz'
+        const resp = await fetch(sourcePath)
+        // @ts-expect-error
+        const reader = Readable.fromWeb(resp.body)
+        const extract = createExtract()
+        reader.pipe(zlib.createUnzip()).pipe(extract.receiver)
+        let errorOccurred = false
+        await new Promise((resolve, reject) => {
+          extract.on('close', resolve)
+          extract.on('error', (e) => {
+            errorOccurred = true
+            reject(e)
+          })
+        })
+        expect(errorOccurred).toBe(false)
+      }, { timeout: 40000 })
     })
   })
 })

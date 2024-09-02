@@ -204,6 +204,7 @@ export class Extract {
     this.pause = false
     this.writer = createWriteableStream({
       write: (chunk, _, callback) => {
+        // We must ensure that the chunk is enough to fill the 512 bytes
         if (this.pause) {
           const bb = this.matrix.shift(this.matrix.bytesLen)
           const next = new Uint8Array(bb.length + chunk.length)
@@ -319,6 +320,11 @@ export class Extract {
     }
 
     while (this.matrix.bytesLen > 0) {
+      if (this.matrix.bytesLen < 512) {
+        this.pause = true
+        return
+      }
+
       if (this.isNonUSTAR) {
         handleNonUSTARFormat()
         continue
@@ -336,16 +342,10 @@ export class Extract {
         continue
       }
 
-      try {
-        const c = this.matrix.peek(512)
-        if (c[0] === Magic.NULL_CHAR && c[511] === Magic.NULL_CHAR) {
-          this.matrix.shift(512)
-          continue
-        }
-      } catch (_) {
-        // In some case the last chunk of the file is not enough to fill the 512 bytes
-        this.pause = true
-        return
+      const c = this.matrix.peek(512)
+      if (c[0] === Magic.NULL_CHAR && c[511] === Magic.NULL_CHAR) {
+        this.matrix.shift(512)
+        continue
       }
 
       if (!decodeHead()) return
