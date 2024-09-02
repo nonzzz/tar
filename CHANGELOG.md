@@ -1,3 +1,7 @@
+## 0.1.4
+
+- Pause stream until fill right size.
+
 # 0.1.3
 
 ## Patches

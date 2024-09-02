@@ -153,7 +153,7 @@ describe('Stream', () => {
           })
         })
         expect(errorOccurred).toBe(false)
-      }, { timeout: 40000 })
+      }, { timeout: 60000 })
     })
   })
 })
