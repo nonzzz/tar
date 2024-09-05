@@ -1,17 +1,20 @@
+import { builtinModules } from 'module'
 import { defineConfig } from 'rollup'
-import { nodeResolve } from '@rollup/plugin-node-resolve'
-import { swc } from 'rollup-plugin-swc3'
+import { minify, swc } from 'rollup-plugin-swc3'
 import dts from 'rollup-plugin-dts'
 
-export default defineConfig([{ input: 'src/index.ts',
+export default defineConfig([{
+  input: 'src/index.ts',
   output: [
     { file: 'dist/index.mjs', format: 'esm', exports: 'named' },
     { file: 'dist/index.js', format: 'cjs', exports: 'named' }
   ],
   plugins: [
-    nodeResolve(),
-    swc()
-  ] }, {
+    swc(),
+    minify({ mangle: true, compress: true, module: true })
+  ],
+  external: builtinModules
+}, {
   input: 'src/index.ts',
   output: { file: 'dist/index.d.ts' },
   plugins: [dts()]

@@ -1,6 +1,6 @@
 {
   "name": "tar-mini",
-  "version": "0.1.4",
+  "version": "0.2.0",
   "description": "It's an implementation based on the `ustar` format",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -40,7 +40,6 @@
   },
   "homepage": "https://github.com/nonzzz/tar#readme",
   "devDependencies": {
-    "@rollup/plugin-node-resolve": "^15.2.3",
     "@types/node": "^20.14.11",
     "@vitest/coverage-v8": "^2.0.4",
     "dprint": "^0.47.2",

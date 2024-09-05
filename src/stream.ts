@@ -72,11 +72,11 @@ export class Pack {
     const consume = (chunk: Uint8Array) => {
       if (resolvedOptions.pax) {
         const paxHead = encodePax({ name: resolvedOptions.name, linkname: resolvedOptions.linkname || '', pax: { ...resolvedOptions.pax } })
-        const head = encode({ ...resolvedOptions, name: 'PaxHeader', typeflag: TypeFlag.XHD_TYPE, size: paxHead.length })
+        const head = encode({ ...resolvedOptions, name: 'pax_header', typeflag: TypeFlag.XHD_TYPE, size: paxHead.length })
         this.reader.push(head)
         this.reader.push(paxHead)
         this.reader.push(this.fix(paxHead.length))
-        resolvedOptions.name = 'PaxHeader'
+        resolvedOptions.name = 'pax_header'
       }
       this.reader.push(encode(resolvedOptions))
       this.reader.push(chunk)
@@ -175,6 +175,28 @@ function ensureIsStandardUSTARFormat(typeflag: UnionTypeFlag) {
   return STANDARD_TYPE_FLAG_SET.has(typeflag)
 }
 
+function stateManager<T>(namespace: string, inital: T) {
+  let value = { ...inital }
+  let has = false
+  return {
+    namespace,
+    produce: (next: T) => {
+      value = next
+      has = true
+    },
+    reset: () => {
+      value = { ...inital }
+      has = false
+    },
+    get c() {
+      return value
+    },
+    get has() {
+      return has
+    }
+  }
+}
+
 export class Extract {
   private writer: Writable
   private decodeOptions: DecodingHeadOptions
@@ -186,8 +208,8 @@ export class Extract {
   private elt: Uint8Array | null
   private total: number
   private isNonUSTAR: boolean
-  private paxMeta: Record<string, string>
-  private gnuMeta: Record<string, string>
+  private paxMeta: ReturnType<typeof stateManager<Record<string, string>>>
+  private gnuMeta: ReturnType<typeof stateManager<Record<string, string>>>
   private pause: boolean
   constructor(options: DecodingHeadOptions) {
     this.decodeOptions = options
@@ -199,8 +221,8 @@ export class Extract {
     this.elt = null
     this.total = 0
     this.isNonUSTAR = false
-    this.paxMeta = Object.create(null)
-    this.gnuMeta = Object.create(null)
+    this.paxMeta = stateManager('pax', Object.create(null))
+    this.gnuMeta = stateManager('gnu', Object.create(null))
     this.pause = false
     this.writer = createWriteableStream({
       write: (chunk, _, callback) => {
@@ -241,22 +263,17 @@ export class Extract {
           return true
         }
 
-        if (Object.keys(this.gnuMeta).length > 0) {
-          for (const key in this.gnuMeta) {
-            if (this.gnuMeta[key]) {
-              // @ts-expect-error
-              this.head[key] = this.gnuMeta[key]
-            }
-          }
-          this.gnuMeta = Object.create(null)
+        if (this.gnuMeta.has) {
+          this.head = { ...this.head, ...this.gnuMeta.c }
+          this.gnuMeta.reset()
         }
 
-        if (Object.keys(this.paxMeta).length > 0) {
-          this.head.name = this.paxMeta.path
-          this.head.linkname = this.paxMeta.linkpath
+        if (this.paxMeta.has) {
+          this.head.name = this.paxMeta.c.path || this.head.name
+          this.head.linkname = this.paxMeta.c.linkpath
           // @ts-expect-error
-          this.head.pax = { ...this.paxMeta }
-          this.paxMeta = Object.create(null)
+          this.head.pax = this.paxMeta
+          this.paxMeta.reset()
         }
 
         this.missing = this.head.size
@@ -288,23 +305,20 @@ export class Extract {
     const handlePax = () => {
       const c = this.matrix.shift(this.head.size)
       const paxHead = decodePax(c)
-      this.paxMeta = { ...this.paxMeta, ...paxHead }
+      this.paxMeta.produce({ ...this.paxMeta.c, ...paxHead })
       this.total += this.head.size + 512
     }
 
     const handleLongPath = () => {
       const c = this.matrix.shift(this.head.size)
       const filename = decodeString(c, 0, c.length, this.decodeOptions.filenameEncoding)
-      if (this.head.typeflag === GnuTypeFlag.GNUTYPE_LONGNAME) {
-        this.gnuMeta = { name: filename }
-      } else {
-        this.gnuMeta = { linkname: filename }
-      }
+      this.gnuMeta.produce({ [this.head.typeflag === GnuTypeFlag.GNUTYPE_LONGNAME ? 'name' : 'linkname']: filename })
       this.total += this.head.size + 512
     }
 
     const handleNonUSTARFormat = () => {
       switch (this.head.typeflag) {
+        case TypeFlag.XGL_TYPE:
         case TypeFlag.XHD_TYPE:
           handlePax()
           break

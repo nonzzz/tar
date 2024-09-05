@@ -137,6 +137,28 @@ describe('Stream', () => {
         await fsp.rm(targetPath, { recursive: true })
         expect(c).toBe(files.length)
       })
+      it('Pax Header with Global Extended Header Data', async () => {
+        const tarSource = path.join(fixturesPath, 'vite-plugin-compression-1.2.0.tar.gz')
+        const targetPath = path.join(__dirname, 'tpl')
+        const output = path.join(targetPath, 'vite-plugin-compression-1.2.0')
+        fs.mkdirSync(targetPath, { recursive: true })
+        await x('tar', [`-xzf${tarSource}`, `-C${targetPath}`])
+        const files = await readAll(output)
+        const extract = createExtract()
+        let c = 0
+        extract.on('entry', (head) => {
+          if (head.typeflag === TypeFlag.REG_TYPE) {
+            c += 1
+          }
+        })
+
+        const reader = fs.createReadStream(tarSource)
+        reader.pipe(zlib.createUnzip()).pipe(extract.receiver)
+
+        await new Promise((resolve) => extract.on('close', resolve))
+        await fsp.rm(targetPath, { recursive: true })
+        expect(c).toBe(files.length)
+      })
       it('From browser stream', async () => {
         const sourcePath = 'https://nodejs.org/dist/v22.7.0/node-v22.7.0-darwin-x64.tar.gz'
         const resp = await fetch(sourcePath)

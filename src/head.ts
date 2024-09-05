@@ -342,7 +342,7 @@ function prettyTypeFlag(b: uint8): UnionTypeFlag {
     case 76:
       return GnuTypeFlag.GNUTYPE_LONGNAME
     default:
-      return (b - 48) + '' as unknown as TypeFlag
+      return (b - 48) + '' as TypeFlag
   }
 }
 

@@ -1,3 +1,9 @@
+## 0.2.0
+
+## Features
+
+- Support handle `global_pax_header`.
+
 ## 0.1.4
 
 - Pause stream until fill right size.
