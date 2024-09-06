@@ -75,7 +75,7 @@ export class Pack {
         const head = encode({ ...resolvedOptions, name: 'pax_header', typeflag: TypeFlag.XHD_TYPE, size: paxHead.length })
         this.reader.push(head)
         this.reader.push(paxHead)
-        this.reader.push(this.fix(paxHead.length))
+        this.fix(paxHead.length)
         resolvedOptions.name = 'pax_header'
       }
       this.reader.push(encode(resolvedOptions))
