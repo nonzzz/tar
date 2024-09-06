@@ -172,7 +172,7 @@ function encodeOctal(b: number, fixed?: number) {
 
 // https://www.gnu.org/software/tar/manual/html_node/Extensions.html
 function parse256(b: Uint8Array) {
-  const positive = b[0] === Magic.POSITIVE_256 ? true : false
+  const positive = b[0] === Magic.POSITIVE_256
   return b.slice(1).reduceRight((acc, cur, i) => {
     const byte = positive ? cur : Magic.NEGATIVE_256 - cur
     return acc += byte * Math.pow(256, b.length - i - 2)
