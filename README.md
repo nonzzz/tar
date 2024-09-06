@@ -38,6 +38,17 @@ pack.receiver.pipe(extract.receiver)
 ### Related
 
 - [tar](https://www.gnu.org/software/tar/manual/html_node/Standard.html)
+- [pax](https://pubs.opengroup.org/onlinepubs/9699919799/utilities/pax.html#tag_20_92_13_03)
+
+### Others
+
+> Why another ustar foramt lib?
+> Alough `tar-stream` is useful, we won't need so many dependencies for higher version of NodeJs. And this library is lightweight and can handle simple scenes.
+
+### Scenes
+
+- [@compilets/untar-url](https://github.com/compilets/untar-url)
+- [vite-plugin-compression2](https://github.com/nonzzz/vite-plugin-compression)
 
 ### LICENSE
 
