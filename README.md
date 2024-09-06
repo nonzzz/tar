@@ -42,7 +42,7 @@ pack.receiver.pipe(extract.receiver)
 
 ### Others
 
-> Why another ustar foramt lib?
+> Why another ustar format lib?
 > Alough `tar-stream` is useful, we won't need so many dependencies for higher version of NodeJs. And this library is lightweight and can handle simple scenes.
 
 ### Scenes
