@@ -3,9 +3,10 @@ import fs from 'fs'
 import fsp from 'fs/promises'
 import path from 'path'
 import zlib from 'zlib'
+import { create, destroy } from 'memdisk'
 import { x } from 'tinyexec'
 
-import { describe, expect, it } from 'vitest'
+import { afterAll, describe, expect, it } from 'vitest'
 import { TypeFlag, createExtract, createPack } from '../src'
 
 const fixturesPath = path.join(__dirname, 'fixtures')
@@ -31,6 +32,10 @@ async function readAll(entry: string) {
 
 describe('Stream', () => {
   describe('Uniform Standard Type Archive', () => {
+    const ramDiskPath = create.sync('tar-mini-stream', 64 * 1024 * 1024, { quiet: false })
+    afterAll(() => {
+      destroy.sync(ramDiskPath, { quiet: false })
+    })
     const assets: Record<string, string> = {
       'assets/a.mjs': 'const a = 1;',
       'assets/b.mjs': 'import "./c.css"; import { a } from "./a.mjs"; console.log(a);',
@@ -87,7 +92,7 @@ describe('Stream', () => {
 
       it('@LongLink GNU tar', async () => {
         const nodeTar = path.join(fixturesPath, 'node-v22.7.0.tar.gz')
-        const targetPath = path.join(__dirname, 'tpl')
+        const targetPath = path.join(ramDiskPath, '@LongLinkGunTar')
         const output = path.join(targetPath, 'node-v22.7.0')
         fs.mkdirSync(targetPath, { recursive: true })
         await x('tar', [`-xzf${nodeTar}`, `-C${targetPath}`])
@@ -102,7 +107,7 @@ describe('Stream', () => {
 
         const p = await new Promise((resolve) => {
           const reader = fs.createReadStream(nodeTar)
-          const binary: Buffer[] = []
+          const binary: Uint8Array[] = []
           reader.pipe(zlib.createUnzip()).on('data', (c) => binary.push(c)).on('end', () => {
             const buffer = Buffer.concat(binary)
             resolve(buffer)
@@ -117,7 +122,7 @@ describe('Stream', () => {
       })
       it('@LongLink GNU tar2', async () => {
         const nodeTar = path.join(fixturesPath, 'node-v22.7.0.tar.gz')
-        const targetPath = path.join(__dirname, 'tpl')
+        const targetPath = path.join(ramDiskPath, '@LongLinkGunTar2')
         const output = path.join(targetPath, 'node-v22.7.0')
         fs.mkdirSync(targetPath, { recursive: true })
         await x('tar', [`-xzf${nodeTar}`, `-C${targetPath}`])
@@ -139,7 +144,7 @@ describe('Stream', () => {
       })
       it('Pax Header with Global Extended Header Data', async () => {
         const tarSource = path.join(fixturesPath, 'vite-plugin-compression-1.2.0.tar.gz')
-        const targetPath = path.join(__dirname, 'tpl')
+        const targetPath = path.join(ramDiskPath, 'PaxHeaderWithGlobalExtendedHeaderData')
         const output = path.join(targetPath, 'vite-plugin-compression-1.2.0')
         fs.mkdirSync(targetPath, { recursive: true })
         await x('tar', [`-xzf${tarSource}`, `-C${targetPath}`])
@@ -160,7 +165,7 @@ describe('Stream', () => {
         expect(c).toBe(files.length)
       })
       it('From browser stream', async () => {
-        const sourcePath = 'https://nodejs.org/dist/v22.7.0/node-v22.7.0-darwin-x64.tar.gz'
+        const sourcePath = 'https://github.com/nonzzz/squarified/archive/refs/tags/v0.1.1.tar.gz'
         const resp = await fetch(sourcePath)
         // @ts-expect-error
         const reader = Readable.fromWeb(resp.body)

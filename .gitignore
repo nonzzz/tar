@@ -4,5 +4,4 @@ dist
 lib
 .merlin
 coverage
-tpl
 .DS_Store

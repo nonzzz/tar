@@ -1,3 +1,5 @@
+ROLLUP_CMD = pnpm exec rollup --config rollup.config.mts --configPlugin swc3
+
 install:
 	@echo "Using berry to install dependencies..."
 	corepack enable
@@ -5,7 +7,7 @@ install:
 
 test:
 	@echo "Running tests..."
-	@pnpm run test
+	@pnpm exec vitest
 
 lint:
 	@echo "Linting code..."
@@ -17,4 +19,8 @@ format:
 
 build:
 	@echo "Building project..."
-	@pnpm run build
+	$(ROLLUP_CMD)
+
+dev:
+	@echo "Building project..."
+	$(ROLLUP_CMD) --watch
