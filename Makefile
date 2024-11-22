@@ -1,4 +1,4 @@
-ROLLUP_CMD = pnpm exec rollup --config rollup.config.mts --configPlugin swc3
+FLAGS += -f tar-mini
 
 install:
 	@echo "Using berry to install dependencies..."
@@ -19,8 +19,9 @@ format:
 
 build:
 	@echo "Building project..."
-	$(ROLLUP_CMD)
+	-rm -rf dist
+	./node_modules/.bin/jiek $(FLAGS) build -om
 
-dev:
-	@echo "Building project..."
-	$(ROLLUP_CMD) --watch
+publish: build
+	@echo "Publishing project..."
+	./node_modules/.bin/jiek $(FLAGS) pub -no-b

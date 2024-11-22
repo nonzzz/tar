@@ -19,7 +19,7 @@ jobs:
         run: make
       - name: Pack and Publish
         run: |
-          make build
-          npm publish --provenance --access public
+          make publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: true
