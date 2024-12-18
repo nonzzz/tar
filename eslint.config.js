@@ -1,3 +1,3 @@
 const { nonzzz } = require('eslint-config-kagura')
 
-module.exports = nonzzz({ ts: true }, { ignores: ['**/dist/', '**/lib/'] })
+module.exports = nonzzz({ tyescript: true }, { ignores: ['**/dist/', '**/lib/'] })

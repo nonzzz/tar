@@ -5,14 +5,14 @@
   "editor.codeActionsOnSave": {
     "source.fixAll": "explicit"
   },
+  "[javascript]": {
+    "editor.defaultFormatter": "dprint.dprint"
+  },
   "editor.formatOnSave": true,
   "[json]": {
     "editor.defaultFormatter": "dprint.dprint"
   },
   "[markdown]": {
     "editor.defaultFormatter": "dprint.dprint"
-  },
-  "[rescript]": {
-    "editor.defaultFormatter": "chenglou92.rescript-vscode"
   }
 }

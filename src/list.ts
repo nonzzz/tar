@@ -6,7 +6,7 @@ class Elt<T> {
   rev: number
   next: Elt<T> | null
   constructor(cap: number) {
-    this.items = new Array(cap)
+    this.items = new Array<T>(cap)
     this.pos = 0
     this.rev = 0
     this.mask = cap - 1
@@ -24,7 +24,7 @@ class Elt<T> {
 
   shift() {
     const first = this.items[this.rev]
-    if (first === undefined) return undefined
+    if (first === undefined) { return undefined }
     this.items[this.rev] = undefined
     this.rev = (this.rev + 1) & this.mask
     return first
@@ -59,7 +59,7 @@ export class List<T> {
   }
 
   shift() {
-    if (this.length !== 0) this.length--
+    if (this.length !== 0) { this.length-- }
     const value = this.tail.shift()
     if (value === undefined && this.tail.next) {
       const next = this.tail.next

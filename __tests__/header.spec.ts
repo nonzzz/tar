@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ERROR_MESSAGES, F_MODE, TypeFlag, decodePax, decode as decodeTar, encode, encodePax } from '../src'
+import { ERROR_MESSAGES, F_MODE, TypeFlag, decode as decodeTar, decodePax, encode, encodePax } from '../src'
 import type { EncodingHeadOptions } from '../src'
 
 function randomDir(len: number) {
@@ -14,7 +14,7 @@ function randomDir(len: number) {
     let dirLength = Math.floor(Math.random() * maxDirLength) + 1
     if (currentLength + dirLength + 1 > len) {
       dirLength = len - currentLength - 1
-      if (dirLength <= 0) break
+      if (dirLength <= 0) { break }
     }
 
     for (let i = 0; i < dirLength; i++) {

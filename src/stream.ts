@@ -6,7 +6,7 @@ import { List, createList } from './list'
 import { noop } from './shared'
 
 export type PackOptions = Partial<Omit<EncodingHeadOptions, 'name' | 'size' | 'mtime'>> & {
-  filename: string
+  filename: string,
   pax?: Record<string, string>
 }
 
@@ -57,7 +57,7 @@ export class Pack {
   }
 
   done() {
-    if (this.finished) return
+    if (this.finished) { return }
     this.finished = true
     this.reader.push(new Uint8Array(1024))
     this.reader.push(null)
@@ -65,7 +65,7 @@ export class Pack {
 
   private fix(size: number) {
     const padding = (512 - (size % 512)) % 512
-    if (padding > 0) this.reader.push(new Uint8Array(padding))
+    if (padding > 0) { this.reader.push(new Uint8Array(padding)) }
   }
 
   private transport(binary: Uint8Array, resolvedOptions: EncodingHeadOptionsWithPax) {
@@ -83,7 +83,7 @@ export class Pack {
     }
 
     const writer = createWriteableStream({
-      write: (chunk, _, callback) => {
+      write: (chunk: Uint8Array, _, callback) => {
         try {
           consume(chunk)
           callback()
@@ -201,7 +201,7 @@ export class Extract {
   private writer: Writable
   private decodeOptions: DecodingHeadOptions
   matrix: FastBytes
-  private head: ReturnType<typeof decode>
+  private head: ReturnType<typeof decode> & ({ pax?: ReturnType<typeof decodePax> })
   private missing: number
   private offset: number
   private flag: boolean
@@ -214,6 +214,7 @@ export class Extract {
   constructor(options: DecodingHeadOptions) {
     this.decodeOptions = options
     this.matrix = new FastBytes()
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     this.head = Object.create(null)
     this.missing = 0
     this.flag = false
@@ -225,7 +226,7 @@ export class Extract {
     this.gnuMeta = stateManager('gnu', Object.create(null))
     this.pause = false
     this.writer = createWriteableStream({
-      write: (chunk, _, callback) => {
+      write: (chunk: Uint8Array, _, callback) => {
         // We must ensure that the chunk is enough to fill the 512 bytes
         if (this.pause) {
           const bb = this.matrix.shift(this.matrix.bytesLen)
@@ -271,8 +272,7 @@ export class Extract {
         if (this.paxMeta.has) {
           this.head.name = this.paxMeta.c.path || this.head.name
           this.head.linkname = this.paxMeta.c.linkpath
-          // @ts-expect-error
-          this.head.pax = this.paxMeta
+          this.head.pax = this.paxMeta.c
           this.paxMeta.reset()
         }
 
@@ -352,6 +352,7 @@ export class Extract {
       if (this.head && this.head.size && !this.flag) {
         const padding = this.removePadding(this.head.size)
         this.total += padding
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         this.head = Object.create(null)
         continue
       }
@@ -362,7 +363,7 @@ export class Extract {
         continue
       }
 
-      if (!decodeHead()) return
+      if (!decodeHead()) { return }
     }
   }
 
@@ -377,8 +378,11 @@ export class Extract {
   on(event: 'pipe', listener: (src: Readable) => void): void
   on(event: 'unpipe', listener: (src: Readable) => void): void
   on(event: 'entry', listener: (head: ReturnType<typeof decode>, u8: Uint8Array) => void): void
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   on(event: string | symbol, listener: (...args: any[]) => void): void
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   on(event: any, listener: (...args: any[]) => void = noop) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     this.writer.on(event, listener)
   }
 }

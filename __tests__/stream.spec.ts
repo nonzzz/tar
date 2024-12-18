@@ -1,10 +1,10 @@
-import { Readable, Writable } from 'stream'
 import fs from 'fs'
 import fsp from 'fs/promises'
-import path from 'path'
-import zlib from 'zlib'
 import { create, destroy } from 'memdisk'
+import path from 'path'
+import { Readable, Writable } from 'stream'
 import { x } from 'tinyexec'
+import zlib from 'zlib'
 
 import { afterAll, describe, expect, it } from 'vitest'
 import { TypeFlag, createExtract, createPack } from '../src'
@@ -59,7 +59,7 @@ describe('Stream', () => {
         expectByteLen += 1024
         pack.done()
         const writer = new Writable({
-          write(chunk, _, callback) {
+          write(chunk: Buffer, _, callback) {
             actualByteLen += chunk.length
             callback()
           }
@@ -70,7 +70,7 @@ describe('Stream', () => {
       })
     })
     describe('Extract', () => {
-      it('Normal', async () => {
+      it('Normal', () => {
         const pack = createPack()
         const extract = createExtract()
         const textDecode = new TextDecoder()
@@ -108,7 +108,7 @@ describe('Stream', () => {
         const p = await new Promise((resolve) => {
           const reader = fs.createReadStream(nodeTar)
           const binary: Uint8Array[] = []
-          reader.pipe(zlib.createUnzip()).on('data', (c) => binary.push(c)).on('end', () => {
+          reader.pipe(zlib.createUnzip()).on('data', (c: Uint8Array) => binary.push(c)).on('end', () => {
             const buffer = Buffer.concat(binary)
             resolve(buffer)
           })
@@ -167,7 +167,7 @@ describe('Stream', () => {
       it('From browser stream', async () => {
         const sourcePath = 'https://github.com/nonzzz/squarified/archive/refs/tags/v0.1.1.tar.gz'
         const resp = await fetch(sourcePath)
-        // @ts-expect-error
+        // @ts-expect-error safe
         const reader = Readable.fromWeb(resp.body)
         const extract = createExtract()
         reader.pipe(zlib.createUnzip()).pipe(extract.receiver)

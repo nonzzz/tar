@@ -1,4 +1,4 @@
-FLAGS += -f tar-mini
+JK = ./node_modules/.bin/jiek
 
 install:
 	@echo "Using berry to install dependencies..."
@@ -11,7 +11,7 @@ test:
 
 lint:
 	@echo "Linting code..."
-	@pnpm run lint
+	@pnpm exec eslint --fix .
 
 format:
 	@echo "Formatting code..."
@@ -20,8 +20,8 @@ format:
 build:
 	@echo "Building project..."
 	-rm -rf dist
-	./node_modules/.bin/jiek $(FLAGS) build -om
+	$(JK) build -f tar-mini --noMin
 
 publish: build
 	@echo "Publishing project..."
-	./node_modules/.bin/jiek $(FLAGS) pub -no-b
+	$(JK) prepublish && $(JK) publish -no-b && $(JK) postpublish

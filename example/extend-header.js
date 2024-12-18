@@ -1,7 +1,7 @@
 import fs from 'fs'
 import path from 'path'
-import zlib from 'zlib'
 import { createExtract } from 'tar-mini'
+import zlib from 'zlib'
 import { setupEnv } from './setup.js'
 
 const [ok, symPath] = setupEnv()

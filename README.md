@@ -6,7 +6,7 @@ It's an implementation based on the `ustar` format. This package only provides l
 
 ```ts
 // packing
-import { createPack, createExtract } from 'tar-mini'
+import { createExtract, createPack } from 'tar-mini'
 
 const pack = createPack()
 

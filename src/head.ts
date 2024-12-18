@@ -362,7 +362,7 @@ export function decode(b: Uint8Array, options?: DecodingHeadOptions) {
   const devmajor = decodeOctal(b, 329, 8)
   const devminor = decodeOctal(b, 337, 8)
   const c = chksum(b)
-  if (c === 256) throw new Error(ERROR_MESSAGES.NOT_INIT)
+  if (c === 256) { throw new Error(ERROR_MESSAGES.NOT_INIT) }
   if (c !== decodeOctal(b, 148, 8)) {
     throw new Error(ERROR_MESSAGES.INVALID_CHKSUM)
   }
@@ -405,7 +405,7 @@ export function decodePax(b: Uint8Array) {
   while (cap > 0) {
     matrix[line].push(b[start])
     if (b[start] === Magic.NEW_LINE) {
-      if (start + 1 === b.length) break
+      if (start + 1 === b.length) { break }
       line++
       matrix[line] = []
       start++

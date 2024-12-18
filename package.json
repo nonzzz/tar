@@ -20,18 +20,24 @@
     "README.md",
     "LICENSE"
   ],
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
   "exports": "./src/index.ts",
   "bugs": {
     "url": "https://github.com/nonzzz/tar/issues"
   },
   "homepage": "https://github.com/nonzzz/tar#readme",
   "devDependencies": {
+    "@pnpm/logger": "^1000.0.0",
+    "@types/benchmark": "^2.1.5",
     "@types/node": "^20.14.11",
     "@vitest/coverage-v8": "^2.0.4",
+    "benchmark": "^2.1.4",
     "dprint": "^0.47.2",
-    "eslint": "^8.57.0",
-    "eslint-config-kagura": "^2.2.1",
-    "jiek": "^1.1.12",
+    "eslint": "^9.16.0",
+    "eslint-config-kagura": "^3.0.1",
+    "jiek": "2.2.7",
     "memdisk": "^1.2.1",
     "tinyexec": "^0.3.0",
     "typescript": "^5.5.4",
@@ -40,18 +46,11 @@
   "packageManager": "pnpm@9.4.0",
   "pnpm": {
     "overrides": {
-      "array-includes": "npm:@nolyfill/array-includes@^1",
-      "array.prototype.flat": "npm:@nolyfill/array.prototype.flat@^1",
-      "array.prototype.flatmap": "npm:@nolyfill/array.prototype.flatmap@^1",
-      "deep-equal": "npm:@nolyfill/deep-equal@^1",
-      "es-iterator-helpers": "npm:@nolyfill/es-iterator-helpers@^1",
-      "hasown": "npm:@nolyfill/hasown@^1",
       "is-core-module": "npm:@nolyfill/is-core-module@^1",
-      "object.assign": "npm:@nolyfill/object.assign@^1",
-      "object.fromentries": "npm:@nolyfill/object.fromentries@^1",
-      "object.values": "npm:@nolyfill/object.values@^1",
-      "safe-regex-test": "npm:@nolyfill/safe-regex-test@^1",
-      "string.prototype.includes": "npm:@nolyfill/string.prototype.includes@^1"
+      "is-generator-function": "npm:@nolyfill/is-generator-function@^1",
+      "safe-buffer": "npm:@nolyfill/safe-buffer@^1",
+      "safer-buffer": "npm:@nolyfill/safer-buffer@^1",
+      "deep-equal": "npm:@nolyfill/deep-equal@^1"
     }
   }
 }
