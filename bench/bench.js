@@ -1,7 +1,8 @@
 import Benchmark from 'benchmark'
-import { createPack } from './dist/index.mjs'
+import tarStream from 'tar-stream'
+import { createPack } from '../dist/index.mjs'
 
-const suite = new Benchmark.Suite()
+const packSuite = new Benchmark.Suite('Pack')
 
 const assets = {
   'assets/a.mjs': 'const a = 1;',
@@ -9,7 +10,13 @@ const assets = {
   'assets/c.css': 'body { background: red; }'
 }
 
-suite.add('Pack', () => {
+packSuite.add('tar-stream', () => {
+  const pack = tarStream.pack()
+  for (const [path, content] of Object.entries(assets)) {
+    pack.entry({ name: path }, new TextEncoder().encode(content))
+  }
+  pack.finalize()
+}).add('tar-mini', () => {
   const pack = createPack()
   for (const [path, content] of Object.entries(assets)) {
     pack.add(new TextEncoder().encode(content), {

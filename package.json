@@ -30,10 +30,8 @@
   "homepage": "https://github.com/nonzzz/tar#readme",
   "devDependencies": {
     "@pnpm/logger": "^1000.0.0",
-    "@types/benchmark": "^2.1.5",
     "@types/node": "^20.14.11",
     "@vitest/coverage-v8": "^2.0.4",
-    "benchmark": "^2.1.4",
     "dprint": "^0.47.2",
     "eslint": "^9.16.0",
     "eslint-config-kagura": "^3.0.1",

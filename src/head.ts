@@ -1,7 +1,6 @@
 /* eslint-disable no-labels */
 // https://www.gnu.org/software/tar/manual/html_node/Standard.html
 // https://www.gnu.org/software/tar/manual/html_node/Portability.html#Portability
-
 type uint8 = number
 
 // POSIX HEADER
@@ -103,7 +102,10 @@ export const Magic = {
   NEW_LINE: 10, // ascii code
   NEGATIVE_256: 0xFF,
   POSITIVE_256: 0x80,
-  GNU_LONG_NAME: '././@LongLink'
+  GNU_LONG_NAME: '././@LongLink',
+  PRE_ALLOC_SIZE: 256, // according head struct we know the largest field is name. (100 + 155 + padding)
+  ZEROS: '0000000000000000000',
+  SEVENS: '7777777777777777777'
 }
 
 export interface EncodingHeadOptions {
@@ -144,10 +146,25 @@ export const ERROR_MESSAGES = {
 }
 
 // For most scens. format ustar is useful, but when we meet the large file, we should fallback to the old gnu format.
-
+// https://github.com/nodejs/node/issues/39879
+// https://github.com/nodejs/node/issues/50485
+// https://developer.mozilla.org/zh-CN/docs/Web/API/TextEncoder/encodeInto
+// According to the spec, each encode call will alloc a new uint8 array. It's slow than Buffer.from.
 const enc = /* @__PURE__ */ new TextEncoder()
 
 const encodeString = enc.encode.bind(enc)
+
+function createUTF8Encoding(alloc: number) {
+  const arena = new Uint8Array(alloc)
+  return function encode(s: string) {
+    const { written } = enc.encodeInto(s, arena)
+    const final = new Array<uint8>(written)
+    for (let i = 0; i < written; i++) {
+      final[i] = arena[i]
+    }
+    return final
+  }
+}
 
 export function decodeString(b: Uint8Array, offset: number, length: number, encoding = 'utf-8') {
   // filter null character
@@ -158,16 +175,10 @@ export function decodeString(b: Uint8Array, offset: number, length: number, enco
   return dec.decode(b.subarray(offset, offset + length))
 }
 
-function encodeOctal(b: number, fixed?: number) {
+function encodeOctal(b: number, fixed: number) {
   const o = b.toString(8)
-  if (fixed) {
-    if (o.length <= fixed) {
-      const fill = '0'.repeat(fixed - o.length)
-      return fill + o + ' '
-    }
-    return '7'.repeat(fixed) + ' '
-  }
-  return o
+  if (o.length > fixed) { return Magic.SEVENS.slice(0, fixed) + ' ' }
+  return Magic.ZEROS.slice(0, fixed - o.length) + o + ' '
 }
 
 // https://www.gnu.org/software/tar/manual/html_node/Extensions.html
@@ -206,12 +217,15 @@ function decodeOctal(b: Uint8Array, offset: number, length: number) {
 // https://www.gnu.org/software/tar/manual/html_node/Checksumming.html#Checksumming
 
 function chksum(b: Uint8Array) {
-  return b.subarray(0, 512).reduce((acc, cur, i) => {
-    if (i >= 148 && i < 156) {
-      return acc + Magic.WHITE_SPACE
-    }
-    return acc + cur
-  }, 0)
+  // 148 ~ 156
+  let sum = Magic.WHITE_SPACE * 8
+  for (let i = 0; i < 148; i++) {
+    sum += b[i]
+  }
+  for (let i = 156; i < 512; i++) {
+    sum += b[i]
+  }
+  return sum
 }
 
 // "%d %s=%s\n", <length>, <keyword>, <value>
@@ -233,6 +247,9 @@ function paxTemplate(keyword: string, value: string) {
 // ...
 export function encode(options: EncodingHeadOptions) {
   const block = new Uint8Array(512)
+  // do pre alloc memory for encode string performance
+  // follow spec. we know the pre alloc size if it's over panic it.
+  const encodeString = createUTF8Encoding(Magic.PRE_ALLOC_SIZE)
   let name = options.name
   if (options.typeflag === TypeFlag.DIR_TYPE && name[name.length - 1] !== '/') {
     name += '/'

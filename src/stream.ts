@@ -92,7 +92,7 @@ export class Pack {
         }
       },
       final: (callback) => {
-        this.reader.push(this.fix(resolvedOptions.size))
+        this.fix(resolvedOptions.size)
         callback()
       }
     })
