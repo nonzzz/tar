@@ -153,7 +153,7 @@ export const ERROR_MESSAGES = {
 const enc = /* @__PURE__ */ new TextEncoder()
 
 const encodeString = enc.encode.bind(enc)
-
+// This is a fast possible implementation for utf-8 encoding. FWIW i won't want to use Buffer.
 function createUTF8Encoding(alloc: number) {
   const arena = new Uint8Array(alloc)
   return function encode(s: string) {
@@ -282,10 +282,10 @@ export function encode(options: EncodingHeadOptions) {
   if (options.linkname && encodeString(options.linkname).length > 100) {
     throw new Error(ERROR_MESSAGES.INVALID_ENCODING_LINKNAME)
   }
-  block.set(binaryName, 0)
-  block.set(encodeString(encodeOctal(options.mode, 6)), 100)
-  block.set(encodeString(encodeOctal(options.uid, 6)), 108)
-  block.set(encodeString(encodeOctal(options.gid, 6)), 116)
+  writeBytes(block, 0, binaryName)
+  writeBytes(block, 100, encodeString(encodeOctal(options.mode, 6)))
+  writeBytes(block, 108, encodeString(encodeOctal(options.uid, 6)))
+  writeBytes(block, 116, encodeString(encodeOctal(options.gid, 6)))
 
   // size
   // octal max is 7777777...
@@ -296,36 +296,36 @@ export function encode(options: EncodingHeadOptions) {
       bb[i] = s & Magic.NEGATIVE_256
       s = Math.floor(s / 256)
     }
-    block.set(bb, 124)
+    writeBytes(block, 124, bb)
   } else {
-    block.set(encodeString(encodeOctal(options.size, 11)), 124)
+    writeBytes(block, 124, encodeString(encodeOctal(options.size, 11)))
   }
 
-  block.set(encodeString(encodeOctal(options.mtime, 11)), 136)
-  block.set(encodeString(options.typeflag), 156)
+  writeBytes(block, 136, encodeString(encodeOctal(options.mtime, 11)))
+  writeBytes(block, 156, encodeString(options.typeflag))
 
   if (options.linkname) {
-    block.set(encodeString(options.linkname), 157)
+    writeBytes(block, 157, encodeString(options.linkname))
   }
   // magic & version
-  block.set(encodeString(Magic.T_MAGIC), 257)
-  block.set(encodeString(Magic.T_VERSION), 263)
+  writeBytes(block, 257, encodeString(Magic.T_MAGIC))
+  writeBytes(block, 263, encodeString(Magic.T_VERSION))
   // uname
   if (options.uname) {
-    block.set(encodeString(options.uname), 265)
+    writeBytes(block, 265, encodeString(options.uname))
   }
   // gname
   if (options.gname) {
-    block.set(encodeString(options.gname), 297)
+    writeBytes(block, 297, encodeString(options.gname))
   }
-  block.set(encodeString(encodeOctal(options.devmajor, 6)), 329)
-  block.set(encodeString(encodeOctal(options.devminor, 6)), 337)
+  writeBytes(block, 329, encodeString(encodeOctal(options.devmajor, 6)))
+  writeBytes(block, 337, encodeString(encodeOctal(options.devminor, 6)))
   if (prefix) {
-    block.set(encodeString(prefix), 345)
+    writeBytes(block, 345, encodeString(prefix))
   }
 
   // chksum
-  block.set(encodeString(encodeOctal(chksum(block), 6)), 148)
+  writeBytes(block, 148, encodeString(encodeOctal(chksum(block), 6)))
 
   return block
 }
@@ -447,4 +447,11 @@ export function decodePax(b: Uint8Array) {
     })
   }
   return pax
+}
+
+function writeBytes(b: Uint8Array, start: number, value: uint8[]) {
+  const len = value.length
+  for (let i = 0; i < len; i++) {
+    b[start + i] = value[i]
+  }
 }
