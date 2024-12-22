@@ -3,6 +3,15 @@
 // https://www.gnu.org/software/tar/manual/html_node/Portability.html#Portability
 type uint8 = number
 
+interface NativeBufferMethods {
+  byteLengthUtf8: (s: string) => number
+  utf8Write: (this: Uint8Array, s: string, offset: number, length: number) => number
+  // static method is live in node v22.9.0
+  utf8WriteStatic: (b: Uint8Array, s: string, offset: number, length: number) => number
+}
+
+const nativeBuffer = process.binding<NativeBufferMethods>('buffer')
+
 // POSIX HEADER
 export interface Head {
   name: uint8 // 100
@@ -103,7 +112,6 @@ export const Magic = {
   NEGATIVE_256: 0xFF,
   POSITIVE_256: 0x80,
   GNU_LONG_NAME: '././@LongLink',
-  PRE_ALLOC_SIZE: 256, // according head struct we know the largest field is name. (100 + 155 + padding)
   ZEROS: '0000000000000000000',
   SEVENS: '7777777777777777777'
 }
@@ -153,18 +161,6 @@ export const ERROR_MESSAGES = {
 const enc = /* @__PURE__ */ new TextEncoder()
 
 const encodeString = enc.encode.bind(enc)
-// This is a fast possible implementation for utf-8 encoding. FWIW i won't want to use Buffer.
-function createUTF8Encoding(alloc: number) {
-  const arena = new Uint8Array(alloc)
-  return function encode(s: string) {
-    const { written } = enc.encodeInto(s, arena)
-    const final = new Array<uint8>(written)
-    for (let i = 0; i < written; i++) {
-      final[i] = arena[i]
-    }
-    return final
-  }
-}
 
 export function decodeString(b: Uint8Array, offset: number, length: number, encoding = 'utf-8') {
   // filter null character
@@ -231,8 +227,8 @@ function chksum(b: Uint8Array) {
 // "%d %s=%s\n", <length>, <keyword>, <value>
 function paxTemplate(keyword: string, value: string) {
   const template = ' ' + keyword + '=' + value + '\n'
-  const binary = encodeString(template)
-  return (binary.length + String(binary.length).length) + template
+  const binary = nativeBuffer.byteLengthUtf8(template)
+  return (binary + String(binary).length) + template
 }
 
 // https://pubs.opengroup.org/onlinepubs/9699919799/utilities/pax.html#tag_20_92_13_03
@@ -249,7 +245,8 @@ export function encode(options: EncodingHeadOptions) {
   const block = new Uint8Array(512)
   // do pre alloc memory for encode string performance
   // follow spec. we know the pre alloc size if it's over panic it.
-  const encodeString = createUTF8Encoding(Magic.PRE_ALLOC_SIZE)
+  // const encodeString = createUTF8Encoding(Magic.PRE_ALLOC_SIZE)
+  const writeStr = createWriteStr(block)
   let name = options.name
   if (options.typeflag === TypeFlag.DIR_TYPE && name[name.length - 1] !== '/') {
     name += '/'
@@ -275,17 +272,16 @@ export function encode(options: EncodingHeadOptions) {
     throw new Error(ERROR_MESSAGES.INVALID_ENCODING_NAME)
   }
 
-  const binaryName = encodeString(name)
-  if (binaryName.length + prefix.length > 255) {
+  if (nativeBuffer.byteLengthUtf8(name) + prefix.length > 255) {
     throw new Error(ERROR_MESSAGES.INVALID_ENCODING_NAME_LEN)
   }
-  if (options.linkname && encodeString(options.linkname).length > 100) {
+  if (options.linkname && nativeBuffer.byteLengthUtf8(options.linkname) > 100) {
     throw new Error(ERROR_MESSAGES.INVALID_ENCODING_LINKNAME)
   }
-  writeBytes(block, 0, binaryName)
-  writeBytes(block, 100, encodeString(encodeOctal(options.mode, 6)))
-  writeBytes(block, 108, encodeString(encodeOctal(options.uid, 6)))
-  writeBytes(block, 116, encodeString(encodeOctal(options.gid, 6)))
+  writeStr(name, 0)
+  writeStr(encodeOctal(options.mode, 6), 100)
+  writeStr(encodeOctal(options.uid, 6), 108)
+  writeStr(encodeOctal(options.gid, 6), 116)
 
   // size
   // octal max is 7777777...
@@ -298,34 +294,34 @@ export function encode(options: EncodingHeadOptions) {
     }
     writeBytes(block, 124, bb)
   } else {
-    writeBytes(block, 124, encodeString(encodeOctal(options.size, 11)))
+    writeStr(encodeOctal(options.size, 11), 124)
   }
 
-  writeBytes(block, 136, encodeString(encodeOctal(options.mtime, 11)))
-  writeBytes(block, 156, encodeString(options.typeflag))
+  writeStr(encodeOctal(options.mtime, 11), 136)
+  writeStr(options.typeflag, 156)
 
   if (options.linkname) {
-    writeBytes(block, 157, encodeString(options.linkname))
+    writeStr(options.linkname, 157)
   }
   // magic & version
-  writeBytes(block, 257, encodeString(Magic.T_MAGIC))
-  writeBytes(block, 263, encodeString(Magic.T_VERSION))
+  writeStr(Magic.T_MAGIC, 257)
+  writeStr(Magic.T_VERSION, 263)
   // uname
   if (options.uname) {
-    writeBytes(block, 265, encodeString(options.uname))
+    writeStr(options.uname, 265)
   }
   // gname
   if (options.gname) {
-    writeBytes(block, 297, encodeString(options.gname))
+    writeStr(options.gname, 297)
   }
-  writeBytes(block, 329, encodeString(encodeOctal(options.devmajor, 6)))
-  writeBytes(block, 337, encodeString(encodeOctal(options.devminor, 6)))
+  writeStr(encodeOctal(options.devmajor, 6), 329)
+  writeStr(encodeOctal(options.devminor, 6), 337)
   if (prefix) {
-    writeBytes(block, 345, encodeString(prefix))
+    writeStr(prefix, 345)
   }
 
   // chksum
-  writeBytes(block, 148, encodeString(encodeOctal(chksum(block), 6)))
+  writeStr(encodeOctal(chksum(block), 6), 148)
 
   return block
 }
@@ -449,9 +445,19 @@ export function decodePax(b: Uint8Array) {
   return pax
 }
 
-function writeBytes(b: Uint8Array, start: number, value: uint8[]) {
+function writeBytes(b: Uint8Array, start: number, value: Uint8Array | uint8[]) {
   const len = value.length
   for (let i = 0; i < len; i++) {
     b[start + i] = value[i]
+  }
+}
+
+// https://nodejs.org/api/buffer.html#bufwritestring-offset-length-encoding
+function createWriteStr(b: Uint8Array) {
+  return function writeStr(s: string, offset: number) {
+    if (nativeBuffer.utf8WriteStatic) {
+      return nativeBuffer.utf8WriteStatic(b, s, offset, b.length - offset)
+    }
+    return nativeBuffer.utf8Write.call(b, s, offset, b.length - offset)
   }
 }

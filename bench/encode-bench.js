@@ -1,6 +1,6 @@
 import cronometro from 'cronometro'
-import { encode as tarStreamEncode } from 'tar-stream/headers.js'
-import { F_MODE, TypeFlag, encode as tarMiniEncode } from '../dist/index.mjs'
+import { encode as tarStreamEncode, encodePax as tarStreamEncodePax } from 'tar-stream/headers.js'
+import { F_MODE, TypeFlag, encode as tarMiniEncode, encodePax as tarMiniEncodePax } from '../dist/index.mjs'
 
 const filename = 'nonzzz.txt'
 const content = new Uint8Array([49, 49, 49, 49])
@@ -36,5 +36,11 @@ cronometro({
       uname: 'nonzzz',
       gname: 'admin'
     })
+  },
+  tarMiniPax() {
+    tarMiniEncodePax({ name: 'nonzzz.tsx', linkname: '1', pax: { kanno: 'hello world' } })
+  },
+  tarStreamPax() {
+    tarStreamEncodePax({ name: 'nonzzz.tsx', linkname: '1', pax: { kanno: 'hello world' } })
   }
 })
