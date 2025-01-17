@@ -156,13 +156,26 @@ const encodeString = enc.encode.bind(enc)
 // This is a fast possible implementation for utf-8 encoding. FWIW i won't want to use Buffer.
 function createUTF8Encoding(alloc: number) {
   const arena = new Uint8Array(alloc)
-  return function encode(s: string) {
+
+  function writeString(dest: Uint8Array, start: number, s: string) {
+    const { written } = enc.encodeInto(s, arena)
+    for (let i = 0; i < written; i++) {
+      dest[start + i] = arena[i]
+    }
+  }
+
+  function encodeString(s: string) {
     const { written } = enc.encodeInto(s, arena)
     const final = new Array<uint8>(written)
     for (let i = 0; i < written; i++) {
       final[i] = arena[i]
     }
     return final
+  }
+
+  return {
+    writeString,
+    encodeString
   }
 }
 
@@ -249,7 +262,7 @@ export function encode(options: EncodingHeadOptions) {
   const block = new Uint8Array(512)
   // do pre alloc memory for encode string performance
   // follow spec. we know the pre alloc size if it's over panic it.
-  const encodeString = createUTF8Encoding(Magic.PRE_ALLOC_SIZE)
+  const { encodeString, writeString } = createUTF8Encoding(Magic.PRE_ALLOC_SIZE)
   let name = options.name
   if (options.typeflag === TypeFlag.DIR_TYPE && name[name.length - 1] !== '/') {
     name += '/'
@@ -283,9 +296,9 @@ export function encode(options: EncodingHeadOptions) {
     throw new Error(ERROR_MESSAGES.INVALID_ENCODING_LINKNAME)
   }
   writeBytes(block, 0, binaryName)
-  writeBytes(block, 100, encodeString(encodeOctal(options.mode, 6)))
-  writeBytes(block, 108, encodeString(encodeOctal(options.uid, 6)))
-  writeBytes(block, 116, encodeString(encodeOctal(options.gid, 6)))
+  writeString(block, 100, encodeOctal(options.mode, 6))
+  writeString(block, 108, encodeOctal(options.uid, 6))
+  writeString(block, 116, encodeOctal(options.gid, 6))
 
   // size
   // octal max is 7777777...
@@ -298,34 +311,35 @@ export function encode(options: EncodingHeadOptions) {
     }
     writeBytes(block, 124, bb)
   } else {
-    writeBytes(block, 124, encodeString(encodeOctal(options.size, 11)))
+    writeString(block, 124, encodeOctal(options.size, 11))
   }
 
-  writeBytes(block, 136, encodeString(encodeOctal(options.mtime, 11)))
-  writeBytes(block, 156, encodeString(options.typeflag))
+  writeString(block, 136, encodeOctal(options.mtime, 11))
+  writeString(block, 156, options.typeflag)
 
   if (options.linkname) {
-    writeBytes(block, 157, encodeString(options.linkname))
+    writeString(block, 157, options.linkname)
+    // writeBytes(block, 157, encodeString(options.linkname))
   }
   // magic & version
-  writeBytes(block, 257, encodeString(Magic.T_MAGIC))
-  writeBytes(block, 263, encodeString(Magic.T_VERSION))
+  writeString(block, 257, Magic.T_MAGIC)
+  writeString(block, 263, Magic.T_VERSION)
   // uname
   if (options.uname) {
-    writeBytes(block, 265, encodeString(options.uname))
+    writeString(block, 265, options.uname)
   }
   // gname
   if (options.gname) {
-    writeBytes(block, 297, encodeString(options.gname))
+    writeString(block, 297, options.gname)
   }
-  writeBytes(block, 329, encodeString(encodeOctal(options.devmajor, 6)))
-  writeBytes(block, 337, encodeString(encodeOctal(options.devminor, 6)))
+  writeString(block, 329, encodeOctal(options.devmajor, 6))
+  writeString(block, 337, encodeOctal(options.devminor, 6))
   if (prefix) {
-    writeBytes(block, 345, encodeString(prefix))
+    writeString(block, 345, prefix)
   }
 
   // chksum
-  writeBytes(block, 148, encodeString(encodeOctal(chksum(block), 6)))
+  writeString(block, 148, encodeOctal(chksum(block), 6))
 
   return block
 }
