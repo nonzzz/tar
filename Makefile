@@ -20,7 +20,7 @@ format:
 build:
 	@echo "Building project..."
 	-rm -rf dist
-	$(JK) build -f tar-mini --noMin
+	$(JK) build -f tar-mini --onlyMin
 
 publish: build
 	@echo "Publishing project..."

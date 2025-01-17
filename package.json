@@ -37,7 +37,7 @@
     "dprint": "^0.47.2",
     "eslint": "^9.16.0",
     "eslint-config-kagura": "^3.0.1",
-    "jiek": "2.2.7",
+    "jiek": "2.3.3",
     "memdisk": "^1.2.1",
     "tinyexec": "^0.3.0",
     "typescript": "^5.5.4",

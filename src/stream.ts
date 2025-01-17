@@ -32,6 +32,8 @@ const defaultPackOptions = {
   devminor: 0
 } satisfies Partial<EncodingHeadOptions>
 
+const EOF = new Uint8Array(1024)
+
 export class Pack {
   private reader: Readable
   private finished: boolean
@@ -59,13 +61,15 @@ export class Pack {
   done() {
     if (this.finished) { return }
     this.finished = true
-    this.reader.push(new Uint8Array(1024))
+    this.reader.push(EOF)
     this.reader.push(null)
   }
 
   private fix(size: number) {
     const padding = (512 - (size % 512)) % 512
-    if (padding > 0) { this.reader.push(new Uint8Array(padding)) }
+    if (padding > 0) {
+      this.reader.push(EOF.subarray(0, padding))
+    }
   }
 
   private transport(binary: Uint8Array, resolvedOptions: EncodingHeadOptionsWithPax) {
@@ -92,7 +96,7 @@ export class Pack {
         }
       },
       final: (callback) => {
-        this.reader.push(this.fix(resolvedOptions.size))
+        this.fix(resolvedOptions.size)
         callback()
       }
     })

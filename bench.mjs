@@ -9,10 +9,16 @@ const assets = {
   'assets/c.css': 'body { background: red; }'
 }
 
+const encodeAssets = {}
+
+for (const [path, content] of Object.entries(assets)) {
+  encodeAssets[path] = new TextEncoder().encode(content)
+}
+
 suite.add('Pack', () => {
   const pack = createPack()
-  for (const [path, content] of Object.entries(assets)) {
-    pack.add(new TextEncoder().encode(content), {
+  for (const [path, content] of Object.entries(encodeAssets)) {
+    pack.add(content, {
       filename: path
     })
   }
