@@ -143,21 +143,32 @@ class FastBytes {
       throw new Error(FAST_BYTES_ERROR_MESSAGES.EXCEED_BYTES_LEN)
     }
     if (size === 0) {
-      return new Uint8Array(0)
-    }
-    const elt = this.queue.peek()
-    if (!elt) {
-      throw new Error(FAST_BYTES_ERROR_MESSAGES.EXCEED_BYTES_LEN)
+      return EOF.subarray(0, 0)
     }
 
     const b = new Uint8Array(size)
-    this.queue.shift()
-    const bb = elt.subarray(size)
-    if (bb.length > 0) {
-      this.queue.push(bb)
+    let offset = 0
+
+    while (size > 0) {
+      const elt = this.queue.peek()
+      if (!elt) {
+        throw new Error(FAST_BYTES_ERROR_MESSAGES.EXCEED_BYTES_LEN)
+      }
+
+      const chunkSize = Math.min(size, elt.length)
+      b.set(elt.subarray(0, chunkSize), offset)
+      offset += chunkSize
+      size -= chunkSize
+
+      if (chunkSize === elt.length) {
+        this.queue.shift()
+      } else {
+        this.queue.shift()
+        this.queue.push(elt.subarray(chunkSize))
+      }
     }
-    b.set(elt.subarray(0, size))
-    this.bytesLen -= size
+
+    this.bytesLen -= b.length
     return b
   }
 

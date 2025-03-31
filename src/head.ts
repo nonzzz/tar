@@ -319,7 +319,6 @@ export function encode(options: EncodingHeadOptions) {
 
   if (options.linkname) {
     writeString(block, 157, options.linkname)
-    // writeBytes(block, 157, encodeString(options.linkname))
   }
   // magic & version
   writeString(block, 257, Magic.T_MAGIC)
